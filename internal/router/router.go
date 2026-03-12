@@ -41,6 +41,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	// Global middleware
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
+	r.Use(middleware.CORSMiddleware())
 
 	// Health check
 	r.GET("/health", func(c *gin.Context) {
