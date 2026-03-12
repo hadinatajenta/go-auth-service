@@ -7,6 +7,7 @@ const (
 	MsgFetchSuccess    = "Data fetched successfully"
 	MsgUpdateSuccess   = "Data updated successfully"
 	MsgDeleteSuccess   = "Data deleted successfully"
+	MsgCreateSuccess   = "Data created successfully"
 
 	// Error Messages
 	MsgInvalidInput       = "Invalid input data"
