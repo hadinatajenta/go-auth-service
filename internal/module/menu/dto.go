@@ -31,3 +31,14 @@ type MenuResponse struct {
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
+
+type MenuTreeResponse struct {
+	ID          uint               `json:"id"`
+	Name        string             `json:"name"`
+	Description string             `json:"description,omitempty"`
+	Path        string             `json:"path"`
+	Icon        string             `json:"icon,omitempty"`
+	ParentID    uint               `json:"parent_id,omitempty"`
+	SortOrder   int                `json:"sort_order"`
+	Children    []MenuTreeResponse `json:"children,omitempty"`
+}

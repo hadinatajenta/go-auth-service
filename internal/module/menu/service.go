@@ -2,12 +2,14 @@ package menu
 
 import (
 	"context"
+	"sort"
 )
 
 type Service interface {
 	Create(ctx context.Context, req MenuCreateRequest) (*MenuResponse, error)
 	GetByID(ctx context.Context, id uint) (*MenuResponse, error)
 	List(ctx context.Context) ([]MenuResponse, error)
+	GetUserMenusTree(ctx context.Context, userID uint) ([]MenuTreeResponse, error)
 	Update(ctx context.Context, id uint, req MenuUpdateRequest) (*MenuResponse, error)
 	Delete(ctx context.Context, id uint) error
 }
@@ -58,6 +60,58 @@ func (s *service) List(ctx context.Context) ([]MenuResponse, error) {
 	}
 
 	return res, nil
+}
+
+func (s *service) GetUserMenusTree(ctx context.Context, userID uint) ([]MenuTreeResponse, error) {
+	menus, err := s.repo.GetAccessibleMenus(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	menuMap := make(map[uint]*MenuTreeResponse)
+	for _, m := range menus {
+		menuMap[m.ID] = &MenuTreeResponse{
+			ID:          m.ID,
+			Name:        m.Name,
+			Description: m.Description,
+			Path:        m.Path,
+			Icon:        m.Icon,
+			ParentID:    m.ParentID,
+			SortOrder:   m.SortOrder,
+			Children:    []MenuTreeResponse{},
+		}
+	}
+
+	var tree []MenuTreeResponse
+
+	for _, m := range menus {
+		node := menuMap[m.ID]
+		if m.ParentID == 0 {
+			tree = append(tree, *node)
+		} else {
+			if parent, exists := menuMap[m.ParentID]; exists {
+				parent.Children = append(parent.Children, *node)
+			} else {
+				tree = append(tree, *node)
+			}
+		}
+	}
+
+	s.sortMenuTree(tree)
+
+	return tree, nil
+}
+
+func (s *service) sortMenuTree(tree []MenuTreeResponse) {
+	for i := range tree {
+		if len(tree[i].Children) > 0 {
+			s.sortMenuTree(tree[i].Children)
+		}
+	}
+
+	sort.Slice(tree, func(i, j int) bool {
+		return tree[i].SortOrder < tree[j].SortOrder
+	})
 }
 
 func (s *service) Update(ctx context.Context, id uint, req MenuUpdateRequest) (*MenuResponse, error) {

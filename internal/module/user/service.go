@@ -27,12 +27,18 @@ func (s *service) GetProfile(ctx context.Context, id uint) (*UserProfileResponse
 		return nil, errors.New(utils.MsgNotFound)
 	}
 
+	var roleNames []string
+	for _, r := range u.Roles {
+		roleNames = append(roleNames, r.Name)
+	}
+
 	return &UserProfileResponse{
 		ID:        u.ID,
 		Username:  u.Username,
 		Email:     u.Email,
 		FirstName: u.FirstName,
 		LastName:  u.LastName,
+		Roles:     roleNames,
 	}, nil
 }
 
@@ -75,11 +81,17 @@ func (s *service) Delete(ctx context.Context, id uint) error {
 }
 
 func (s *service) toResponse(u *User) *UserResponse {
+	var roleNames []string
+	for _, r := range u.Roles {
+		roleNames = append(roleNames, r.Description)
+	}
+
 	return &UserResponse{
 		ID:        u.ID,
 		Username:  u.Username,
 		Email:     u.Email,
 		FirstName: u.FirstName,
 		LastName:  u.LastName,
+		Roles:     roleNames,
 	}
 }

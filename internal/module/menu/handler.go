@@ -49,13 +49,21 @@ func (h *Handler) GetByID(c *gin.Context) {
 }
 
 func (h *Handler) List(c *gin.Context) {
-	res, err := h.service.List(c.Request.Context())
+	userIDVal, exists := c.Get("user_id")
+	if !exists {
+		utils.ErrorResponse(c, http.StatusUnauthorized, utils.MsgTokenInvalid, nil)
+		return
+	}
+
+	userID := userIDVal.(uint)
+
+	res, err := h.service.GetUserMenusTree(c.Request.Context(), userID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), nil)
 		return
 	}
 
-	utils.SuccessResponse(c, utils.MsgFetchSuccess, res)
+	utils.SuccessResponse(c, utils.MsgFetchSuccess, gin.H{"menus": res}) // Wrap in "menus" per requirement format
 }
 
 func (h *Handler) Update(c *gin.Context) {

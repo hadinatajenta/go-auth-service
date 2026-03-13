@@ -30,7 +30,7 @@ func (r *repository) Create(ctx context.Context, user *User) error {
 
 func (r *repository) GetByID(ctx context.Context, id uint) (*User, error) {
 	var u User
-	if err := r.db.WithContext(ctx).First(&u, id).Error; err != nil {
+	if err := r.db.WithContext(ctx).Preload("Roles").First(&u, id).Error; err != nil {
 		return nil, err
 	}
 	return &u, nil
@@ -58,7 +58,7 @@ func (r *repository) Update(ctx context.Context, user *User) error {
 
 func (r *repository) List(ctx context.Context) ([]User, error) {
 	var users []User
-	if err := r.db.WithContext(ctx).Find(&users).Error; err != nil {
+	if err := r.db.WithContext(ctx).Preload("Roles").Find(&users).Error; err != nil {
 		return nil, err
 	}
 	return users, nil

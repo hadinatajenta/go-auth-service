@@ -6,6 +6,12 @@ import (
 	"gorm.io/gorm"
 )
 
+type Role struct {
+	ID          uint   `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
 type User struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
 	FirstName string         `gorm:"size:50" json:"first_name"`
@@ -17,4 +23,5 @@ type User struct {
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	Roles     []Role         `gorm:"many2many:user_roles;" json:"roles"`
 }
