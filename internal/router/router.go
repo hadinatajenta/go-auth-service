@@ -65,6 +65,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 
 			// User Routes
 			userGroup := protected.Group("/users")
+			userGroup.Use(middleware.PermissionMiddleware(userRepo, "manage_users"))
 			{
 				userGroup.GET("", userHandler.List)
 				userGroup.GET("/:id", userHandler.GetProfile)
@@ -74,6 +75,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 
 			// Role Routes
 			roleGroup := protected.Group("/roles")
+			roleGroup.Use(middleware.PermissionMiddleware(userRepo, "manage_roles"))
 			{
 				roleGroup.POST("", roleHandler.Create)
 				roleGroup.GET("", roleHandler.List)
@@ -84,6 +86,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 
 			// Permission Routes
 			permGroup := protected.Group("/permissions")
+			permGroup.Use(middleware.PermissionMiddleware(userRepo, "manage_permissions"))
 			{
 				permGroup.POST("", permHandler.Create)
 				permGroup.GET("", permHandler.List)
@@ -94,6 +97,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 
 			// Menu Routes
 			menuGroup := protected.Group("/menus")
+			menuGroup.Use(middleware.PermissionMiddleware(userRepo, "manage_menus"))
 			{
 				menuGroup.POST("", menuHandler.Create)
 				menuGroup.GET("", menuHandler.List)

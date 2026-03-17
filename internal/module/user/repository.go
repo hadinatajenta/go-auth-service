@@ -14,6 +14,7 @@ type Repository interface {
 	Update(ctx context.Context, user *User) error
 	List(ctx context.Context) ([]User, error)
 	Delete(ctx context.Context, id uint) error
+	GetUserPermissions(ctx context.Context, userID uint) ([]string, error)
 }
 
 type repository struct {
@@ -58,7 +59,14 @@ func (r *repository) Update(ctx context.Context, user *User) error {
 
 func (r *repository) List(ctx context.Context) ([]User, error) {
 	var users []User
-	if err := r.db.WithContext(ctx).Preload("Roles").Find(&users).Error; err != nil {
+	if err := r.db.WithContext(ctx).Debug().
+		Preload("Roles").
+		Select("users.*").
+		Joins("LEFT JOIN user_roles ON user_roles.user_id = users.id").
+		Joins("LEFT JOIN roles ON roles.id = user_roles.role_id").
+		Group("users.id").
+		Order("MIN(roles.id) ASC").
+		Find(&users).Error; err != nil {
 		return nil, err
 	}
 	return users, nil
@@ -66,4 +74,22 @@ func (r *repository) List(ctx context.Context) ([]User, error) {
 
 func (r *repository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&User{}, id).Error
+}
+
+func (r *repository) GetUserPermissions(ctx context.Context, userID uint) ([]string, error) {
+	var permissions []string
+
+	err := r.db.WithContext(ctx).
+		Table("permissions").
+		Select("DISTINCT permissions.name").
+		Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id").
+		Joins("JOIN user_roles ON user_roles.role_id = role_permissions.role_id").
+		Where("user_roles.user_id = ?", userID).
+		Pluck("name", &permissions).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return permissions, nil
 }
