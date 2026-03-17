@@ -2,7 +2,9 @@ package user
 
 import (
 	"auth-service/internal/utils"
+	"auth-service/internal/module/audit"
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 )
@@ -18,11 +20,12 @@ type Service interface {
 }
 
 type service struct {
-	repo Repository
+	repo     Repository
+	auditSvc audit.Service
 }
 
-func NewService(repo Repository) Service {
-	return &service{repo}
+func NewService(repo Repository, auditSvc audit.Service) Service {
+	return &service{repo, auditSvc}
 }
 
 func (s *service) GetProfile(ctx context.Context, id uint) (*UserProfileResponse, error) {
@@ -59,9 +62,13 @@ func (s *service) Update(ctx context.Context, id uint, req UserUpdateRequest) (*
 		u.LastName = req.LastName
 	}
 
+	oldUser := *u
+
 	if err := s.repo.Update(ctx, u); err != nil {
 		return nil, err
 	}
+
+	s.logActivity(ctx, "UPDATE", "user", u.ID, &oldUser, u)
 
 	return s.toResponse(u), nil
 }
@@ -81,7 +88,17 @@ func (s *service) List(ctx context.Context) ([]UserResponse, error) {
 }
 
 func (s *service) Delete(ctx context.Context, id uint) error {
-	return s.repo.Delete(ctx, id)
+	u, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return err
+	}
+
+	s.logActivity(ctx, "DELETE", "user", id, u, nil)
+	return nil
 }
 
 func (s *service) ChangePassword(ctx context.Context, id uint, req ChangePasswordRequest) error {
@@ -100,7 +117,12 @@ func (s *service) ChangePassword(ctx context.Context, id uint, req ChangePasswor
 	}
 
 	u.Password = hashedPassword
-	return s.repo.Update(ctx, u)
+	if err := s.repo.Update(ctx, u); err != nil {
+		return err
+	}
+
+	s.logActivity(ctx, "CHANGE_PASSWORD", "user", u.ID, nil, nil)
+	return nil
 }
 
 func (s *service) ForgotPassword(ctx context.Context, req ForgotPasswordRequest) (string, error) {
@@ -140,16 +162,54 @@ func (s *service) ResetPassword(ctx context.Context, req ResetPasswordRequest) e
 	u.Password = hashedPassword
 	u.ResetToken = ""
 	u.ResetTokenExpires = nil
-	u.LoginAttempts = 0 // Reset lockout on password reset
+	u.LoginAttempts = 0
 	u.LockedUntil = nil
 
-	return s.repo.Update(ctx, u)
+	if err := s.repo.Update(ctx, u); err != nil {
+		return err
+	}
+
+	s.logActivity(ctx, "RESET_PASSWORD", "user", u.ID, nil, nil)
+	return nil
+}
+
+func (s *service) logActivity(ctx context.Context, action, entity string, entityID uint, oldData, newData interface{}) {
+	auditCtx := audit.FromContext(ctx)
+	if auditCtx == nil {
+		return
+	}
+
+	var oldJSON, newJSON string
+	if oldData != nil {
+		b, _ := json.Marshal(oldData)
+		oldJSON = string(b)
+	}
+	if newData != nil {
+		b, _ := json.Marshal(newData)
+		newJSON = string(b)
+	}
+
+	log := &audit.AuditLog{
+		UserID:    auditCtx.UserID,
+		Action:    action,
+		Entity:    entity,
+		EntityID:  entityID,
+		OldData:   oldJSON,
+		NewData:   newJSON,
+		RequestID: auditCtx.RequestID,
+		Method:    auditCtx.Method,
+		Path:      auditCtx.Path,
+		IPAddress: auditCtx.IPAddress,
+		UserAgent: auditCtx.UserAgent,
+	}
+
+	_ = s.auditSvc.Log(ctx, log)
 }
 
 func (s *service) toResponse(u *User) *UserResponse {
 	var roleNames []string
 	for _, r := range u.Roles {
-		roleNames = append(roleNames, r.Description)
+		roleNames = append(roleNames, r.Name)
 	}
 
 	return &UserResponse{
@@ -161,3 +221,4 @@ func (s *service) toResponse(u *User) *UserResponse {
 		Roles:     roleNames,
 	}
 }
+

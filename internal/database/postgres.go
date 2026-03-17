@@ -3,6 +3,7 @@ package database
 import (
 	"auth-service/internal/config"
 	"auth-service/internal/module/auth"
+	"auth-service/internal/module/audit"
 	"auth-service/internal/module/menu"
 	"auth-service/internal/module/permission"
 	"auth-service/internal/module/role"
@@ -40,10 +41,22 @@ func ConnectDB(cfg *config.Config) {
 		&permission.RolePermission{},
 		&menu.Menu{},
 		&menu.MenuPermission{},
+		&audit.AuditLog{},
 	)
 	if err != nil {
 		slog.Error("Database migration failed", "error", err)
 	} else {
 		slog.Info("Database migration completed successfully")
+		
+		// Apply Partial Unique Indexes for Soft Delete support
+		// This ensures unique constraints only apply to non-deleted records
+		db.Exec("DROP INDEX IF EXISTS idx_users_username_active")
+		db.Exec("CREATE UNIQUE INDEX idx_users_username_active ON users(username) WHERE deleted_at IS NULL")
+		
+		db.Exec("DROP INDEX IF EXISTS idx_users_email_active")
+		db.Exec("CREATE UNIQUE INDEX idx_users_email_active ON users(email) WHERE deleted_at IS NULL")
+		
+		db.Exec("DROP INDEX IF EXISTS idx_roles_name_active")
+		db.Exec("CREATE UNIQUE INDEX idx_roles_name_active ON roles(name) WHERE deleted_at IS NULL")
 	}
 }

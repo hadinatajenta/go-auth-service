@@ -4,11 +4,13 @@ import (
 	"auth-service/internal/config"
 	"auth-service/internal/middleware"
 	"auth-service/internal/module/auth"
+	"auth-service/internal/module/audit"
 	"auth-service/internal/module/menu"
 	"auth-service/internal/module/permission"
 	"auth-service/internal/module/role"
 	"auth-service/internal/module/user"
 	"auth-service/internal/utils"
+	"auth-service/internal/utils/cache"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -17,17 +19,22 @@ import (
 func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	r := gin.Default()
 
+	// Initialize utilities
+	memoryCache := cache.NewMemoryCache()
+
 	// Initialize repositories
 	userRepo := user.NewRepository(db)
 	authRepo := auth.NewRepository(db)
 	roleRepo := role.NewRepository(db)
 	permRepo := permission.NewRepository(db)
 	menuRepo := menu.NewRepository(db)
+	auditRepo := audit.NewRepository(db)
 
 	// Initialize services
+	auditService := audit.NewService(auditRepo)
 	authService := auth.NewService(userRepo, authRepo, cfg)
-	userService := user.NewService(userRepo)
-	roleService := role.NewService(roleRepo)
+	userService := user.NewService(userRepo, auditService)
+	roleService := role.NewService(roleRepo, auditService)
 	permService := permission.NewService(permRepo)
 	menuService := menu.NewService(menuRepo)
 
@@ -37,11 +44,13 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	roleHandler := role.NewHandler(roleService)
 	permHandler := permission.NewHandler(permService)
 	menuHandler := menu.NewHandler(menuService)
+	auditHandler := audit.NewHandler(auditService)
 
 	// Global middleware
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
 	r.Use(middleware.CORSMiddleware())
+	r.Use(middleware.AuditMiddleware())
 
 	// Health check
 	r.GET("/health", func(c *gin.Context) {
@@ -71,7 +80,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 
 			// User Routes
 			userGroup := protected.Group("/users")
-			userGroup.Use(middleware.PermissionMiddleware(userRepo, "manage_users"))
+			userGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "manage_users"))
 			{
 				userGroup.GET("", userHandler.List)
 				userGroup.GET("/:id", userHandler.GetProfile)
@@ -81,7 +90,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 
 			// Role Routes
 			roleGroup := protected.Group("/roles")
-			roleGroup.Use(middleware.PermissionMiddleware(userRepo, "manage_roles"))
+			roleGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "manage_roles"))
 			{
 				roleGroup.POST("", roleHandler.Create)
 				roleGroup.GET("", roleHandler.List)
@@ -92,7 +101,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 
 			// Permission Routes
 			permGroup := protected.Group("/permissions")
-			permGroup.Use(middleware.PermissionMiddleware(userRepo, "manage_permissions"))
+			permGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "manage_permissions"))
 			{
 				permGroup.POST("", permHandler.Create)
 				permGroup.GET("", permHandler.List)
@@ -103,13 +112,19 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 
 			// Menu Routes
 			menuGroup := protected.Group("/menus")
-			menuGroup.Use(middleware.PermissionMiddleware(userRepo, "manage_menus"))
+			menuGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "manage_menus"))
 			{
 				menuGroup.POST("", menuHandler.Create)
 				menuGroup.GET("", menuHandler.List)
 				menuGroup.GET("/:id", menuHandler.GetByID)
 				menuGroup.PUT("/:id", menuHandler.Update)
 				menuGroup.DELETE("/:id", menuHandler.Delete)
+			}
+			// Audit Logs
+			auditGroup := protected.Group("/audit-logs")
+			auditGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "manage_audit_logs"))
+			{
+				auditGroup.GET("", auditHandler.List)
 			}
 		}
 	}

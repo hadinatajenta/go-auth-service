@@ -88,15 +88,29 @@ func (r *repository) Delete(ctx context.Context, id uint) error {
 func (r *repository) GetUserPermissions(ctx context.Context, userID uint) ([]string, error) {
 	var permissions []string
 
-	err := r.db.WithContext(ctx).
-		Table("permissions").
-		Select("DISTINCT permissions.name").
-		Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id").
-		Joins("JOIN user_roles ON user_roles.role_id = role_permissions.role_id").
-		Where("user_roles.user_id = ?", userID).
-		Pluck("name", &permissions).Error
+	query := `
+		WITH RECURSIVE role_hierarchy AS (
+			-- Base case: roles directly assigned to the user
+			SELECT r.id, r.parent_id
+			FROM roles r
+			INNER JOIN user_roles ur ON r.id = ur.role_id
+			WHERE ur.user_id = ? AND r.deleted_at IS NULL
+			
+			UNION ALL
+			
+			-- Recursive step: find parents of assigned roles
+			SELECT r.id, r.parent_id
+			FROM roles r
+			INNER JOIN role_hierarchy rh ON r.id = rh.parent_id
+			WHERE r.deleted_at IS NULL
+		)
+		SELECT DISTINCT p.name
+		FROM permissions p
+		INNER JOIN role_permissions rp ON p.id = rp.permission_id
+		INNER JOIN role_hierarchy rh ON rp.role_id = rh.id
+	`
 
-	if err != nil {
+	if err := r.db.WithContext(ctx).Raw(query, userID).Scan(&permissions).Error; err != nil {
 		return nil, err
 	}
 
