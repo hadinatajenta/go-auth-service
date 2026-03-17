@@ -31,6 +31,22 @@ func (h *Handler) Login(c *gin.Context) {
 	utils.SuccessResponse(c, utils.MsgLoginSuccess, res)
 }
 
+func (h *Handler) Refresh(c *gin.Context) {
+	var req RefreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ValidationErrorResponse(c, utils.MsgInvalidInput, utils.FormatValidationError(err))
+		return
+	}
+
+	res, err := h.service.RefreshToken(c.Request.Context(), req)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusUnauthorized, err.Error(), nil)
+		return
+	}
+
+	utils.SuccessResponse(c, "Token refreshed successfully", res)
+}
+
 func (h *Handler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -43,5 +59,5 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	utils.SuccessResponse(c, utils.MsgRegisterSuccess, nil)
+	utils.SuccessResponse(c, utils.MsgDeleteSuccess, nil)
 }

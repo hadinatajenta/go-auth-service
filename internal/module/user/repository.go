@@ -11,6 +11,7 @@ type Repository interface {
 	GetByID(ctx context.Context, id uint) (*User, error)
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	GetByUsername(ctx context.Context, username string) (*User, error)
+	GetByResetToken(ctx context.Context, token string) (*User, error)
 	Update(ctx context.Context, user *User) error
 	List(ctx context.Context) ([]User, error)
 	Delete(ctx context.Context, id uint) error
@@ -48,6 +49,14 @@ func (r *repository) GetByEmail(ctx context.Context, email string) (*User, error
 func (r *repository) GetByUsername(ctx context.Context, username string) (*User, error) {
 	var u User
 	if err := r.db.WithContext(ctx).Where("username = ?", username).First(&u).Error; err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+func (r *repository) GetByResetToken(ctx context.Context, token string) (*User, error) {
+	var u User
+	if err := r.db.WithContext(ctx).Where("reset_token = ?", token).First(&u).Error; err != nil {
 		return nil, err
 	}
 	return &u, nil

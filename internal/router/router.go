@@ -52,9 +52,14 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	v1 := r.Group("/api/v1")
 	{
 		authGroup := v1.Group("/auth")
+		// Apply rate limit to login and register: 5 requests per minute, burst 10
+		authGroup.Use(middleware.RateLimitMiddleware(5.0/60.0, 10))
 		{
 			authGroup.POST("/login", authHandler.Login)
 			authGroup.POST("/register", authHandler.Register)
+			authGroup.POST("/refresh", authHandler.Refresh)
+			authGroup.POST("/forgot-password", userHandler.ForgotPassword)
+			authGroup.POST("/reset-password", userHandler.ResetPassword)
 		}
 
 		// Protected routes
@@ -62,6 +67,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 		protected.Use(middleware.AuthMiddleware(cfg))
 		{
 			protected.GET("/me", userHandler.GetProfile)
+			protected.POST("/change-password", userHandler.ChangePassword)
 
 			// User Routes
 			userGroup := protected.Group("/users")

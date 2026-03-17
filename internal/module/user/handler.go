@@ -88,3 +88,53 @@ func (h *Handler) Delete(c *gin.Context) {
 
 	utils.SuccessResponse(c, utils.MsgDeleteSuccess, nil)
 }
+
+func (h *Handler) ChangePassword(c *gin.Context) {
+	val, _ := c.Get("user_id")
+	userID := val.(uint)
+
+	var req ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ValidationErrorResponse(c, utils.MsgInvalidInput, utils.FormatValidationError(err))
+		return
+	}
+
+	if err := h.service.ChangePassword(c.Request.Context(), userID, req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+
+	utils.SuccessResponse(c, "Password changed successfully", nil)
+}
+
+func (h *Handler) ForgotPassword(c *gin.Context) {
+	var req ForgotPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ValidationErrorResponse(c, utils.MsgInvalidInput, utils.FormatValidationError(err))
+		return
+	}
+
+	token, err := h.service.ForgotPassword(c.Request.Context(), req)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+
+	// In production, send this via email. For now, we return it in the response for demo purposes.
+	utils.SuccessResponse(c, "Reset token generated", gin.H{"reset_token": token})
+}
+
+func (h *Handler) ResetPassword(c *gin.Context) {
+	var req ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ValidationErrorResponse(c, utils.MsgInvalidInput, utils.FormatValidationError(err))
+		return
+	}
+
+	if err := h.service.ResetPassword(c.Request.Context(), req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+
+	utils.SuccessResponse(c, "Password reset successfully", nil)
+}

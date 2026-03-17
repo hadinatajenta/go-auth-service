@@ -13,15 +13,19 @@ type Role struct {
 }
 
 type User struct {
-	ID        uint           `gorm:"primaryKey" json:"id"`
-	FirstName string         `gorm:"size:50" json:"first_name"`
-	LastName  string         `gorm:"size:50" json:"last_name"`
-	Username  string         `gorm:"size:50;unique;not null" json:"username"`
-	Email     string         `gorm:"size:100;unique;not null" json:"email"`
-	Password  string         `gorm:"size:255;not null" json:"-"`
-	LastLogin *time.Time     `json:"last_login"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
-	Roles     []Role         `gorm:"many2many:user_roles;" json:"roles"`
+	ID            uint           `gorm:"primaryKey" json:"id"`
+	FirstName     string         `gorm:"size:50" json:"first_name"`
+	LastName      string         `gorm:"size:50" json:"last_name"`
+	Username      string         `gorm:"size:50;unique;not null" json:"username"`
+	Email         string         `gorm:"size:100;unique;not null" json:"email"`
+	Password      string         `gorm:"size:255;not null" json:"-"`
+	LoginAttempts     int            `gorm:"default:0" json:"-"`
+	LockedUntil       *time.Time     `json:"-"`
+	ResetToken        string         `gorm:"size:100" json:"-"`
+	ResetTokenExpires *time.Time     `json:"-"`
+	LastLogin         *time.Time     `json:"last_login"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	Roles         []Role         `gorm:"many2many:user_roles;" json:"roles"`
 }

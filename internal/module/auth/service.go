@@ -13,6 +13,7 @@ import (
 type Service interface {
 	Login(ctx context.Context, req LoginRequest) (*LoginResponse, error)
 	Register(ctx context.Context, req RegisterRequest) error
+	RefreshToken(ctx context.Context, req RefreshRequest) (*LoginResponse, error)
 }
 
 type service struct {
@@ -31,20 +32,42 @@ func (s *service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, 
 		return nil, errors.New(utils.MsgInvalidCredentials)
 	}
 
+	// Check if account is locked
+	if u.LockedUntil != nil && u.LockedUntil.After(time.Now()) {
+		return nil, errors.New("account is temporarily locked due to too many failed attempts")
+	}
+
 	if !utils.CheckPasswordHash(req.Password, u.Password) {
+		// Increment login attempts
+		u.LoginAttempts++
+		if u.LoginAttempts >= 5 {
+			lockout := time.Now().Add(time.Minute * 15)
+			u.LockedUntil = &lockout
+		}
+		s.userRepo.Update(ctx, u)
 		return nil, errors.New(utils.MsgInvalidCredentials)
 	}
 
-	token, err := utils.GenerateToken(u.ID, s.cfg.JWTSecret)
+	// Reset attempts on successful login
+	u.LoginAttempts = 0
+	u.LockedUntil = nil
+
+	accessToken, err := utils.GenerateToken(u.ID, s.cfg.JWTSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	refreshToken, err := utils.GenerateRefreshToken(u.ID, s.cfg.JWTSecret)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create session
 	sess := &UserSession{
-		UserID:    u.ID,
-		Token:     token,
-		ExpiredAt: time.Now().Add(time.Hour * 72),
+		UserID:       u.ID,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiredAt:    time.Now().Add(time.Hour * 24 * 7),
 	}
 	if err := s.authRepo.CreateSession(ctx, sess); err != nil {
 		return nil, err
@@ -53,9 +76,14 @@ func (s *service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, 
 	// Update last login
 	now := time.Now()
 	u.LastLogin = &now
-	s.userRepo.Update(ctx, u)
+	if err := s.userRepo.Update(ctx, u); err != nil {
+		return nil, err
+	}
 
-	return &LoginResponse{Token: token}, nil
+	return &LoginResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}, nil
 }
 
 func (s *service) Register(ctx context.Context, req RegisterRequest) error {
@@ -73,4 +101,47 @@ func (s *service) Register(ctx context.Context, req RegisterRequest) error {
 	}
 
 	return s.userRepo.Create(ctx, u)
+}
+func (s *service) RefreshToken(ctx context.Context, req RefreshRequest) (*LoginResponse, error) {
+	// 1. Find session by refresh token
+	sess, err := s.authRepo.GetSessionByRefreshToken(ctx, req.RefreshToken)
+	if err != nil {
+		return nil, errors.New("invalid refresh token")
+	}
+
+	// 2. Check expiration
+	if sess.ExpiredAt.Before(time.Now()) {
+		s.authRepo.DeleteSession(ctx, req.RefreshToken)
+		return nil, errors.New("refresh token expired")
+	}
+
+	// 3. Generate new tokens
+	accessToken, err := utils.GenerateToken(sess.UserID, s.cfg.JWTSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	refreshToken, err := utils.GenerateRefreshToken(sess.UserID, s.cfg.JWTSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	// 4. Update session
+	s.authRepo.DeleteSession(ctx, req.RefreshToken) // Delete old session
+	
+	newSess := &UserSession{
+		UserID:       sess.UserID,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiredAt:    time.Now().Add(time.Hour * 24 * 7),
+	}
+	
+	if err := s.authRepo.CreateSession(ctx, newSess); err != nil {
+		return nil, err
+	}
+
+	return &LoginResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}, nil
 }

@@ -8,7 +8,8 @@ import (
 
 type Repository interface {
 	CreateSession(ctx context.Context, session *UserSession) error
-	GetSessionByToken(ctx context.Context, token string) (*UserSession, error)
+	GetSessionByAccessToken(ctx context.Context, token string) (*UserSession, error)
+	GetSessionByRefreshToken(ctx context.Context, token string) (*UserSession, error)
 	DeleteSession(ctx context.Context, token string) error
 }
 
@@ -24,14 +25,22 @@ func (r *repository) CreateSession(ctx context.Context, session *UserSession) er
 	return r.db.WithContext(ctx).Create(session).Error
 }
 
-func (r *repository) GetSessionByToken(ctx context.Context, token string) (*UserSession, error) {
+func (r *repository) GetSessionByAccessToken(ctx context.Context, token string) (*UserSession, error) {
 	var s UserSession
-	if err := r.db.WithContext(ctx).Where("token = ?", token).First(&s).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("access_token = ?", token).First(&s).Error; err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+func (r *repository) GetSessionByRefreshToken(ctx context.Context, token string) (*UserSession, error) {
+	var s UserSession
+	if err := r.db.WithContext(ctx).Where("refresh_token = ?", token).First(&s).Error; err != nil {
 		return nil, err
 	}
 	return &s, nil
 }
 
 func (r *repository) DeleteSession(ctx context.Context, token string) error {
-	return r.db.WithContext(ctx).Where("token = ?", token).Delete(&UserSession{}).Error
+	return r.db.WithContext(ctx).Where("access_token = ?", token).Or("refresh_token = ?", token).Delete(&UserSession{}).Error
 }
