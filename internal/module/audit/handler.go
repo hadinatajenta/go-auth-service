@@ -16,6 +16,20 @@ func NewHandler(service Service) *Handler {
 	return &Handler{service}
 }
 
+// List godoc
+// @Summary List audit logs
+// @Description Retrieve a paginated list of audit logs with optional filtering
+// @Tags audit
+// @Accept  json
+// @Produce  json
+// @Param user_id query int false "User ID filter"
+// @Param action query string false "Action filter (CREATE, UPDATE, DELETE)"
+// @Param limit query int false "Pagination limit"
+// @Param offset query int false "Pagination offset"
+// @Success 200 {object} utils.APIResponse{data=object}
+// @Failure 500 {object} utils.APIResponse
+// @Security Bearer
+// @Router /audit-logs [get]
 func (h *Handler) List(c *gin.Context) {
 	userIDStr := c.Query("user_id")
 	action := c.Query("action")

@@ -57,13 +57,13 @@ func (r *repository) GetEffectivePermissions(ctx context.Context, roleID uint) (
 	query := `
 		WITH RECURSIVE role_hierarchy AS (
 			-- Base case: the initial role
-			SELECT id, parent_id FROM roles WHERE id = ? AND deleted_at IS NULL
+			SELECT id, parent_id, 1 as depth FROM roles WHERE id = ? AND deleted_at IS NULL
 			UNION ALL
 			-- Recursive step: find parents
-			SELECT r.id, r.parent_id
+			SELECT r.id, r.parent_id, rh.depth + 1
 			FROM roles r
 			INNER JOIN role_hierarchy rh ON r.id = rh.parent_id
-			WHERE r.deleted_at IS NULL
+			WHERE r.deleted_at IS NULL AND rh.depth < 10
 		)
 		SELECT DISTINCT p.name
 		FROM permissions p

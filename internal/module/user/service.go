@@ -1,11 +1,13 @@
 package user
 
 import (
-	"auth-service/internal/utils"
 	"auth-service/internal/module/audit"
+	"auth-service/internal/utils"
+	"auth-service/internal/utils/cache"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -22,10 +24,11 @@ type Service interface {
 type service struct {
 	repo     Repository
 	auditSvc audit.Service
+	cache    cache.Cache
 }
 
-func NewService(repo Repository, auditSvc audit.Service) Service {
-	return &service{repo, auditSvc}
+func NewService(repo Repository, auditSvc audit.Service, cache cache.Cache) Service {
+	return &service{repo, auditSvc, cache}
 }
 
 func (s *service) GetProfile(ctx context.Context, id uint) (*UserProfileResponse, error) {
@@ -68,6 +71,9 @@ func (s *service) Update(ctx context.Context, id uint, req UserUpdateRequest) (*
 		return nil, err
 	}
 
+	// Invalidate permission cache for this user
+	_ = s.cache.Delete(ctx, fmt.Sprintf("user_perms:%d", u.ID))
+
 	s.logActivity(ctx, "UPDATE", "user", u.ID, &oldUser, u)
 
 	return s.toResponse(u), nil
@@ -97,6 +103,9 @@ func (s *service) Delete(ctx context.Context, id uint) error {
 		return err
 	}
 
+	// Invalidate permission cache for this user
+	_ = s.cache.Delete(ctx, fmt.Sprintf("user_perms:%d", id))
+
 	s.logActivity(ctx, "DELETE", "user", id, u, nil)
 	return nil
 }
@@ -120,6 +129,9 @@ func (s *service) ChangePassword(ctx context.Context, id uint, req ChangePasswor
 	if err := s.repo.Update(ctx, u); err != nil {
 		return err
 	}
+
+	// Invalidate permission cache for this user
+	_ = s.cache.Delete(ctx, fmt.Sprintf("user_perms:%d", u.ID))
 
 	s.logActivity(ctx, "CHANGE_PASSWORD", "user", u.ID, nil, nil)
 	return nil
@@ -209,7 +221,7 @@ func (s *service) logActivity(ctx context.Context, action, entity string, entity
 func (s *service) toResponse(u *User) *UserResponse {
 	var roleNames []string
 	for _, r := range u.Roles {
-		roleNames = append(roleNames, r.Name)
+		roleNames = append(roleNames, r.Description)
 	}
 
 	return &UserResponse{
@@ -221,4 +233,3 @@ func (s *service) toResponse(u *User) *UserResponse {
 		Roles:     roleNames,
 	}
 }
-

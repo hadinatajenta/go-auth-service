@@ -1,6 +1,7 @@
 package permission
 
 import (
+	"auth-service/internal/utils/cache"
 	"context"
 )
 
@@ -13,11 +14,12 @@ type Service interface {
 }
 
 type service struct {
-	repo Repository
+	repo  Repository
+	cache cache.Cache
 }
 
-func NewService(repo Repository) Service {
-	return &service{repo}
+func NewService(repo Repository, cache cache.Cache) Service {
+	return &service{repo, cache}
 }
 
 func (s *service) Create(ctx context.Context, req PermissionCreateRequest) (*PermissionResponse, error) {
@@ -71,11 +73,19 @@ func (s *service) Update(ctx context.Context, id uint, req PermissionUpdateReque
 		return nil, err
 	}
 
+	// Invalidate all user caches when a permission is updated (affects inheritance)
+	_ = s.cache.DeleteByPrefix(ctx, "user_perms:")
+
 	return s.toResponse(perm), nil
 }
 
 func (s *service) Delete(ctx context.Context, id uint) error {
-	return s.repo.Delete(ctx, id)
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return err
+	}
+	// Invalidate all user caches when a permission is deleted
+	_ = s.cache.DeleteByPrefix(ctx, "user_perms:")
+	return nil
 }
 
 func (s *service) toResponse(perm *Permission) *PermissionResponse {

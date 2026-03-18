@@ -58,5 +58,11 @@ func ConnectDB(cfg *config.Config) {
 		
 		db.Exec("DROP INDEX IF EXISTS idx_roles_name_active")
 		db.Exec("CREATE UNIQUE INDEX idx_roles_name_active ON roles(name) WHERE deleted_at IS NULL")
+
+		// Phase 1: Optimized Indices for RBAC & Auditing
+		db.Exec("CREATE INDEX IF NOT EXISTS idx_user_roles_composite ON user_roles(user_id, role_id)")
+		db.Exec("CREATE INDEX IF NOT EXISTS idx_role_permissions_composite ON role_permissions(role_id, permission_id)")
+		db.Exec("CREATE INDEX IF NOT EXISTS idx_audit_logs_lookup ON audit_logs(entity, entity_id, created_at DESC)")
+		db.Exec("CREATE INDEX IF NOT EXISTS idx_audit_logs_user_activity ON audit_logs(user_id, created_at DESC)")
 	}
 }

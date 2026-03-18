@@ -11,9 +11,14 @@ import (
 	"auth-service/internal/module/user"
 	"auth-service/internal/utils"
 	"auth-service/internal/utils/cache"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+
+	_ "auth-service/docs"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
@@ -33,9 +38,9 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	// Initialize services
 	auditService := audit.NewService(auditRepo)
 	authService := auth.NewService(userRepo, authRepo, cfg)
-	userService := user.NewService(userRepo, auditService)
-	roleService := role.NewService(roleRepo, auditService)
-	permService := permission.NewService(permRepo)
+	userService := user.NewService(userRepo, auditService, memoryCache)
+	roleService := role.NewService(roleRepo, auditService, memoryCache)
+	permService := permission.NewService(permRepo, memoryCache)
 	menuService := menu.NewService(menuRepo)
 
 	// Initialize handlers
@@ -54,8 +59,25 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 
 	// Health check
 	r.GET("/health", func(c *gin.Context) {
-		utils.SuccessResponse(c, "Server is healthy", gin.H{"status": "up"})
+		sqlDB, err := db.DB()
+		if err != nil {
+			utils.ErrorResponse(c, http.StatusInternalServerError, "Database connection error", err.Error())
+			return
+		}
+
+		if err := sqlDB.Ping(); err != nil {
+			utils.ErrorResponse(c, http.StatusInternalServerError, "Database ping failed", err.Error())
+			return
+		}
+
+		utils.SuccessResponse(c, "Server is healthy", gin.H{
+			"status": "up",
+			"database": "connected",
+		})
 	})
+
+	// Swagger UI
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// API V1 Group
 	v1 := r.Group("/api/v1")

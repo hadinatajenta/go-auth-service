@@ -1,10 +1,11 @@
 package role
 
 import (
+	"auth-service/internal/module/audit"
+	"auth-service/internal/utils/cache"
 	"context"
 	"encoding/json"
 	"errors"
-	"auth-service/internal/module/audit"
 )
 
 type Service interface {
@@ -18,10 +19,11 @@ type Service interface {
 type service struct {
 	repo      Repository
 	auditSvc  audit.Service
+	cache     cache.Cache
 }
 
-func NewService(repo Repository, auditSvc audit.Service) Service {
-	return &service{repo, auditSvc}
+func NewService(repo Repository, auditSvc audit.Service, cache cache.Cache) Service {
+	return &service{repo, auditSvc, cache}
 }
 
 func (s *service) Create(ctx context.Context, req RoleCreateRequest) (*RoleResponse, error) {
@@ -94,6 +96,9 @@ func (s *service) Update(ctx context.Context, id uint, req RoleUpdateRequest) (*
 		return nil, err
 	}
 
+	// Invalidate all user permission caches on hierarchy change
+	_ = s.cache.DeleteByPrefix(ctx, "user_perms:")
+
 	// Audit Log
 	s.logActivity(ctx, "UPDATE", "role", role.ID, &oldRole, role)
 
@@ -109,6 +114,9 @@ func (s *service) Delete(ctx context.Context, id uint) error {
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return err
 	}
+
+	// Invalidate all user permission caches on role deletion
+	_ = s.cache.DeleteByPrefix(ctx, "user_perms:")
 
 	// Audit Log
 	s.logActivity(ctx, "DELETE", "role", id, role, nil)

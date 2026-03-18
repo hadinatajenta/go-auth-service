@@ -6,8 +6,6 @@ import (
 	"auth-service/internal/utils/cache"
 	"fmt"
 	"net/http"
-	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -29,30 +27,39 @@ func PermissionMiddleware(userRepo user.Repository, csh cache.Cache, requiredPer
 		ctx := c.Request.Context()
 		cacheKey := fmt.Sprintf("user_perms:%d", uid)
 		
-		var permissions []string
-		cachedData, err := csh.Get(ctx, cacheKey)
-		
+		// Attempt O(1) check using Set cache
+		hasPermission, err := csh.SIsMember(ctx, cacheKey, requiredPermission)
 		if err == nil {
-			permissions = strings.Split(cachedData, ",")
-		} else {
-			permissions, err = userRepo.GetUserPermissions(ctx, uid)
-			if err != nil {
-				utils.AbortWithError(c, http.StatusInternalServerError, "Failed to retrieve user permissions", nil)
+			if !hasPermission {
+				utils.AbortWithError(c, http.StatusForbidden, "You do not have permission to access this resource", nil)
 				return
 			}
-			// Save to cache for 1 hour (event-based invalidation will handle updates)
-			_ = csh.Set(ctx, cacheKey, strings.Join(permissions, ","), 1*time.Hour)
+			c.Next()
+			return
 		}
 
-		hasPermission := false
+		// Cache miss: Fetch from source of truth (Recursive CTE)
+		permissions, err := userRepo.GetUserPermissions(ctx, uid)
+		if err != nil {
+			utils.AbortWithError(c, http.StatusInternalServerError, "Failed to retrieve user permissions", nil)
+			return
+		}
+		
+		// Re-populate Set cache with all permissions
+		if len(permissions) > 0 {
+			_ = csh.SAdd(ctx, cacheKey, permissions...)
+		}
+		
+		// Final validation for current request
+		authorized := false
 		for _, p := range permissions {
 			if p == requiredPermission {
-				hasPermission = true
+				authorized = true
 				break
 			}
 		}
 
-		if !hasPermission {
+		if !authorized {
 			utils.AbortWithError(c, http.StatusForbidden, "You do not have permission to access this resource", nil)
 			return
 		}

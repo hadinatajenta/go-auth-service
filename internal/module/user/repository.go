@@ -91,7 +91,7 @@ func (r *repository) GetUserPermissions(ctx context.Context, userID uint) ([]str
 	query := `
 		WITH RECURSIVE role_hierarchy AS (
 			-- Base case: roles directly assigned to the user
-			SELECT r.id, r.parent_id
+			SELECT r.id, r.parent_id, 1 as depth
 			FROM roles r
 			INNER JOIN user_roles ur ON r.id = ur.role_id
 			WHERE ur.user_id = ? AND r.deleted_at IS NULL
@@ -99,10 +99,10 @@ func (r *repository) GetUserPermissions(ctx context.Context, userID uint) ([]str
 			UNION ALL
 			
 			-- Recursive step: find parents of assigned roles
-			SELECT r.id, r.parent_id
+			SELECT r.id, r.parent_id, rh.depth + 1
 			FROM roles r
 			INNER JOIN role_hierarchy rh ON r.id = rh.parent_id
-			WHERE r.deleted_at IS NULL
+			WHERE r.deleted_at IS NULL AND rh.depth < 10
 		)
 		SELECT DISTINCT p.name
 		FROM permissions p
