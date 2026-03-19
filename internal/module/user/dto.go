@@ -36,3 +36,13 @@ type ResetPasswordRequest struct {
 	Token       string `json:"token" binding:"required"`
 	NewPassword string `json:"new_password" binding:"required,min=6"`
 }
+
+type UserRoleRequest struct {
+	RoleID uint `json:"role_id" binding:"required"`
+}
+
+type RoleResponse struct {
+	ID          uint   `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}

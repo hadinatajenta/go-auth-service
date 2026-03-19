@@ -13,6 +13,10 @@ type Repository interface {
 	Update(ctx context.Context, role *Role) error
 	Delete(ctx context.Context, id uint) error
 	GetEffectivePermissions(ctx context.Context, roleID uint) ([]string, error)
+	AddPermission(ctx context.Context, roleID uint, permissionID uint) error
+	RemovePermission(ctx context.Context, roleID uint, permissionID uint) error
+	ListPermissions(ctx context.Context, roleID uint) ([]map[string]interface{}, error)
+	ListUsers(ctx context.Context, roleID uint) ([]map[string]interface{}, error)
 }
 
 type repository struct {
@@ -76,4 +80,39 @@ func (r *repository) GetEffectivePermissions(ctx context.Context, roleID uint) (
 	}
 
 	return permissions, nil
+}
+
+func (r *repository) AddPermission(ctx context.Context, roleID uint, permissionID uint) error {
+	return r.db.WithContext(ctx).Table("role_permissions").Create(map[string]interface{}{
+		"role_id":       roleID,
+		"permission_id": permissionID,
+	}).Error
+}
+
+func (r *repository) RemovePermission(ctx context.Context, roleID uint, permissionID uint) error {
+	return r.db.WithContext(ctx).Table("role_permissions").
+		Where("role_id = ? AND permission_id = ?", roleID, permissionID).
+		Delete(nil).Error
+}
+
+func (r *repository) ListPermissions(ctx context.Context, roleID uint) ([]map[string]interface{}, error) {
+	var perms []map[string]interface{}
+	err := r.db.WithContext(ctx).
+		Table("permissions").
+		Select("permissions.*").
+		Joins("INNER JOIN role_permissions ON role_permissions.permission_id = permissions.id").
+		Where("role_permissions.role_id = ?", roleID).
+		Find(&perms).Error
+	return perms, err
+}
+
+func (r *repository) ListUsers(ctx context.Context, roleID uint) ([]map[string]interface{}, error) {
+	var users []map[string]interface{}
+	err := r.db.WithContext(ctx).
+		Table("users").
+		Select("users.id, users.username, users.email, users.first_name, users.last_name").
+		Joins("INNER JOIN user_roles ON user_roles.user_id = users.id").
+		Where("user_roles.role_id = ? AND users.deleted_at IS NULL", roleID).
+		Find(&users).Error
+	return users, err
 }

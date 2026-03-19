@@ -16,6 +16,9 @@ type Repository interface {
 	List(ctx context.Context) ([]User, error)
 	Delete(ctx context.Context, id uint) error
 	GetUserPermissions(ctx context.Context, userID uint) ([]string, error)
+	AddRole(ctx context.Context, userID uint, roleID uint) error
+	RemoveRole(ctx context.Context, userID uint, roleID uint) error
+	ListRoles(ctx context.Context, userID uint) ([]Role, error)
 }
 
 type repository struct {
@@ -115,4 +118,27 @@ func (r *repository) GetUserPermissions(ctx context.Context, userID uint) ([]str
 	}
 
 	return permissions, nil
+}
+
+func (r *repository) AddRole(ctx context.Context, userID uint, roleID uint) error {
+	return r.db.WithContext(ctx).Table("user_roles").Create(map[string]interface{}{
+		"user_id": userID,
+		"role_id": roleID,
+	}).Error
+}
+
+func (r *repository) RemoveRole(ctx context.Context, userID uint, roleID uint) error {
+	return r.db.WithContext(ctx).Table("user_roles").
+		Where("user_id = ? AND role_id = ?", userID, roleID).
+		Delete(nil).Error
+}
+
+func (r *repository) ListRoles(ctx context.Context, userID uint) ([]Role, error) {
+	var roles []Role
+	err := r.db.WithContext(ctx).
+		Table("roles").
+		Joins("INNER JOIN user_roles ON user_roles.role_id = roles.id").
+		Where("user_roles.user_id = ? AND roles.deleted_at IS NULL", userID).
+		Find(&roles).Error
+	return roles, err
 }

@@ -48,7 +48,14 @@ func (h *Handler) GetByID(c *gin.Context) {
 	utils.SuccessResponse(c, utils.MsgFetchSuccess, res)
 }
 
-func (h *Handler) List(c *gin.Context) {
+// GetAllowed returns menus accessible by current user
+// @Summary Get allowed menus
+// @Description Get hierarchical menu structure accessible by the current user based on their permissions
+// @Tags menus
+// @Produce json
+// @Success 200 {object} utils.APIResponse{data=[]MenuTreeResponse}
+// @Router /menus/allowed [get]
+func (h *Handler) GetAllowed(c *gin.Context) {
 	userIDVal, exists := c.Get("user_id")
 	if !exists {
 		utils.ErrorResponse(c, http.StatusUnauthorized, utils.MsgTokenInvalid, nil)
@@ -63,7 +70,24 @@ func (h *Handler) List(c *gin.Context) {
 		return
 	}
 
-	utils.SuccessResponse(c, utils.MsgFetchSuccess, gin.H{"menus": res}) // Wrap in "menus" per requirement format
+	utils.SuccessResponse(c, utils.MsgFetchSuccess, res)
+}
+
+// GetTree returns full hierarchical menu structure
+// @Summary Get full menu tree
+// @Description Get full hierarchical menu structure for all menus
+// @Tags menus
+// @Produce json
+// @Success 200 {object} utils.APIResponse{data=[]MenuTreeResponse}
+// @Router /menus/tree [get]
+func (h *Handler) GetTree(c *gin.Context) {
+	res, err := h.service.GetFullTree(c.Request.Context())
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), nil)
+		return
+	}
+
+	utils.SuccessResponse(c, utils.MsgFetchSuccess, res)
 }
 
 func (h *Handler) Update(c *gin.Context) {

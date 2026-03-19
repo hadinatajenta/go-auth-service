@@ -11,6 +11,8 @@ type Repository interface {
 	GetSessionByAccessToken(ctx context.Context, token string) (*UserSession, error)
 	GetSessionByRefreshToken(ctx context.Context, token string) (*UserSession, error)
 	DeleteSession(ctx context.Context, token string) error
+	DeleteSessionByRefreshToken(ctx context.Context, token string) error
+	DeleteAllSessionsByUserID(ctx context.Context, userID uint) error
 }
 
 type repository struct {
@@ -43,4 +45,12 @@ func (r *repository) GetSessionByRefreshToken(ctx context.Context, token string)
 
 func (r *repository) DeleteSession(ctx context.Context, token string) error {
 	return r.db.WithContext(ctx).Where("access_token = ?", token).Or("refresh_token = ?", token).Delete(&UserSession{}).Error
+}
+
+func (r *repository) DeleteSessionByRefreshToken(ctx context.Context, token string) error {
+	return r.db.WithContext(ctx).Where("refresh_token = ?", token).Delete(&UserSession{}).Error
+}
+
+func (r *repository) DeleteAllSessionsByUserID(ctx context.Context, userID uint) error {
+	return r.db.WithContext(ctx).Where("user_id = ?", userID).Delete(&UserSession{}).Error
 }

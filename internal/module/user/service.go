@@ -19,6 +19,10 @@ type Service interface {
 	ChangePassword(ctx context.Context, id uint, req ChangePasswordRequest) error
 	ForgotPassword(ctx context.Context, req ForgotPasswordRequest) (string, error)
 	ResetPassword(ctx context.Context, req ResetPasswordRequest) error
+	AddRole(ctx context.Context, userID uint, req UserRoleRequest) error
+	RemoveRole(ctx context.Context, userID uint, roleID uint) error
+	ListRoles(ctx context.Context, userID uint) ([]RoleResponse, error)
+	GetPermissions(ctx context.Context, userID uint) ([]string, error)
 }
 
 type service struct {
@@ -183,6 +187,51 @@ func (s *service) ResetPassword(ctx context.Context, req ResetPasswordRequest) e
 
 	s.logActivity(ctx, "RESET_PASSWORD", "user", u.ID, nil, nil)
 	return nil
+}
+
+func (s *service) AddRole(ctx context.Context, userID uint, req UserRoleRequest) error {
+	if err := s.repo.AddRole(ctx, userID, req.RoleID); err != nil {
+		return err
+	}
+
+	// Invalidate permission cache for this user
+	_ = s.cache.Delete(ctx, fmt.Sprintf("user_perms:%d", userID))
+
+	s.logActivity(ctx, "ADD_ROLE", "user", userID, nil, req)
+	return nil
+}
+
+func (s *service) RemoveRole(ctx context.Context, userID uint, roleID uint) error {
+	if err := s.repo.RemoveRole(ctx, userID, roleID); err != nil {
+		return err
+	}
+
+	// Invalidate permission cache for this user
+	_ = s.cache.Delete(ctx, fmt.Sprintf("user_perms:%d", userID))
+
+	s.logActivity(ctx, "REMOVE_ROLE", "user", userID, nil, map[string]interface{}{"role_id": roleID})
+	return nil
+}
+
+func (s *service) ListRoles(ctx context.Context, userID uint) ([]RoleResponse, error) {
+	roles, err := s.repo.ListRoles(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	var res []RoleResponse
+	for _, r := range roles {
+		res = append(res, RoleResponse{
+			ID:          r.ID,
+			Name:        r.Name,
+			Description: r.Description,
+		})
+	}
+	return res, nil
+}
+
+func (s *service) GetPermissions(ctx context.Context, userID uint) ([]string, error) {
+	return s.repo.GetUserPermissions(ctx, userID)
 }
 
 func (s *service) logActivity(ctx context.Context, action, entity string, entityID uint, oldData, newData interface{}) {

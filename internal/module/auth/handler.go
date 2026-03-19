@@ -22,6 +22,10 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
+	// Inject server-side metadata (not from JSON body)
+	req.IPAddress = c.ClientIP()
+	req.UserAgent = c.GetHeader("User-Agent")
+
 	res, err := h.service.Login(c.Request.Context(), req)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusUnauthorized, err.Error(), nil)
@@ -60,4 +64,34 @@ func (h *Handler) Register(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, utils.MsgDeleteSuccess, nil)
+}
+
+func (h *Handler) Logout(c *gin.Context) {
+	var req LogoutRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ValidationErrorResponse(c, utils.MsgInvalidInput, utils.FormatValidationError(err))
+		return
+	}
+
+	if err := h.service.Logout(c.Request.Context(), req.RefreshToken); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+
+	utils.SuccessResponse(c, "Logged out successfully", nil)
+}
+
+func (h *Handler) LogoutAll(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "User context not found", nil)
+		return
+	}
+
+	if err := h.service.LogoutAll(c.Request.Context(), userID.(uint)); err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), nil)
+		return
+	}
+
+	utils.SuccessResponse(c, "Logged out from all sessions successfully", nil)
 }

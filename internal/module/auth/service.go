@@ -14,6 +14,8 @@ type Service interface {
 	Login(ctx context.Context, req LoginRequest) (*LoginResponse, error)
 	Register(ctx context.Context, req RegisterRequest) error
 	RefreshToken(ctx context.Context, req RefreshRequest) (*LoginResponse, error)
+	Logout(ctx context.Context, refreshToken string) error
+	LogoutAll(ctx context.Context, userID uint) error
 }
 
 type service struct {
@@ -62,11 +64,13 @@ func (s *service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, 
 		return nil, err
 	}
 
-	// Create session
+	// Create session with client metadata
 	sess := &UserSession{
 		UserID:       u.ID,
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
+		IPAddress:    req.IPAddress,
+		UserAgent:    req.UserAgent,
 		ExpiredAt:    time.Now().Add(time.Hour * 24 * 7),
 	}
 	if err := s.authRepo.CreateSession(ctx, sess); err != nil {
@@ -144,4 +148,18 @@ func (s *service) RefreshToken(ctx context.Context, req RefreshRequest) (*LoginR
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil
+}
+
+func (s *service) Logout(ctx context.Context, refreshToken string) error {
+	// check if session exists
+	_, err := s.authRepo.GetSessionByRefreshToken(ctx, refreshToken)
+	if err != nil {
+		return errors.New("session not found")
+	}
+
+	return s.authRepo.DeleteSessionByRefreshToken(ctx, refreshToken)
+}
+
+func (s *service) LogoutAll(ctx context.Context, userID uint) error {
+	return s.authRepo.DeleteAllSessionsByUserID(ctx, userID)
 }

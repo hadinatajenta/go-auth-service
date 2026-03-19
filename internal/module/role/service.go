@@ -14,12 +14,17 @@ type Service interface {
 	List(ctx context.Context) ([]RoleResponse, error)
 	Update(ctx context.Context, id uint, req RoleUpdateRequest) (*RoleResponse, error)
 	Delete(ctx context.Context, id uint) error
+	AddPermission(ctx context.Context, roleID uint, req RolePermissionRequest) error
+	RemovePermission(ctx context.Context, roleID uint, permissionID uint) error
+	ListPermissions(ctx context.Context, roleID uint) ([]map[string]interface{}, error)
+	ListUsers(ctx context.Context, roleID uint) ([]map[string]interface{}, error)
+	DebugUser(ctx context.Context, userID uint) (map[string]interface{}, error)
 }
 
 type service struct {
-	repo      Repository
-	auditSvc  audit.Service
-	cache     cache.Cache
+	repo     Repository
+	auditSvc audit.Service
+	cache    cache.Cache
 }
 
 func NewService(repo Repository, auditSvc audit.Service, cache cache.Cache) Service {
@@ -122,6 +127,84 @@ func (s *service) Delete(ctx context.Context, id uint) error {
 	s.logActivity(ctx, "DELETE", "role", id, role, nil)
 
 	return nil
+}
+
+func (s *service) AddPermission(ctx context.Context, roleID uint, req RolePermissionRequest) error {
+	if err := s.repo.AddPermission(ctx, roleID, req.PermissionID); err != nil {
+		return err
+	}
+
+	// Invalidate all user permission caches on role permission change
+	_ = s.cache.DeleteByPrefix(ctx, "user_perms:")
+
+	s.logActivity(ctx, "ADD_PERMISSION", "role", roleID, nil, req)
+	return nil
+}
+
+func (s *service) RemovePermission(ctx context.Context, roleID uint, permissionID uint) error {
+	if err := s.repo.RemovePermission(ctx, roleID, permissionID); err != nil {
+		return err
+	}
+
+	// Invalidate all user permission caches on role permission change
+	_ = s.cache.DeleteByPrefix(ctx, "user_perms:")
+
+	s.logActivity(ctx, "REMOVE_PERMISSION", "role", roleID, nil, map[string]interface{}{"permission_id": permissionID})
+	return nil
+}
+
+func (s *service) ListPermissions(ctx context.Context, roleID uint) ([]map[string]interface{}, error) {
+	return s.repo.ListPermissions(ctx, roleID)
+}
+
+func (s *service) ListUsers(ctx context.Context, roleID uint) ([]map[string]interface{}, error) {
+	return s.repo.ListUsers(ctx, roleID)
+}
+
+func (s *service) DebugUser(ctx context.Context, userID uint) (map[string]interface{}, error) {
+	// 1. Get direct roles
+
+	var userRoles []Role
+	if err := s.repo.(*repository).db.WithContext(ctx).
+		Table("roles").
+		Joins("INNER JOIN user_roles ON user_roles.role_id = roles.id").
+		Where("user_roles.user_id = ? AND roles.deleted_at IS NULL", userID).
+		Find(&userRoles).Error; err != nil {
+		return nil, err
+	}
+
+	// 2. Resolve hierarchy
+	var allRoleIDs []uint
+	roleMap := make(map[uint]string)
+	for _, r := range userRoles {
+		allRoleIDs = append(allRoleIDs, r.ID)
+		roleMap[r.ID] = r.Name
+	}
+
+	// 3. Get effective permissions
+	var effectivePerms []string
+	if err := s.repo.(*repository).db.WithContext(ctx).Raw(`
+		WITH RECURSIVE role_hierarchy AS (
+			SELECT id, parent_id, 1 as depth FROM roles WHERE id IN ? AND deleted_at IS NULL
+			UNION ALL
+			SELECT r.id, r.parent_id, rh.depth + 1
+			FROM roles r
+			INNER JOIN role_hierarchy rh ON r.id = rh.parent_id
+			WHERE r.deleted_at IS NULL AND rh.depth < 10
+		)
+		SELECT DISTINCT p.name
+		FROM permissions p
+		JOIN role_permissions rp ON p.id = rp.permission_id
+		JOIN role_hierarchy rh ON rp.role_id = rh.id
+	`, allRoleIDs).Scan(&effectivePerms).Error; err != nil {
+		return nil, err
+	}
+
+	return map[string]interface{}{
+		"user_id":               userID,
+		"direct_roles":          userRoles,
+		"effective_permissions": effectivePerms,
+	}, nil
 }
 
 func (s *service) hasCycle(ctx context.Context, parentID, childID uint) bool {

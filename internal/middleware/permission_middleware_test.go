@@ -30,6 +30,9 @@ func (m *mockUserRepo) GetByResetToken(ctx context.Context, token string) (*user
 func (m *mockUserRepo) Update(ctx context.Context, u *user.User) error { return nil }
 func (m *mockUserRepo) List(ctx context.Context) ([]user.User, error) { return nil, nil }
 func (m *mockUserRepo) Delete(ctx context.Context, id uint) error { return nil }
+func (m *mockUserRepo) AddRole(ctx context.Context, userID uint, roleID uint) error { return nil }
+func (m *mockUserRepo) RemoveRole(ctx context.Context, userID uint, roleID uint) error { return nil }
+func (m *mockUserRepo) ListRoles(ctx context.Context, userID uint) ([]user.Role, error) { return nil, nil }
 
 type mockCache struct {
 	cache.Cache

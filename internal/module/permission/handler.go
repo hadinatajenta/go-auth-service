@@ -94,3 +94,20 @@ func (h *Handler) Delete(c *gin.Context) {
 
 	utils.SuccessResponse(c, utils.MsgDeleteSuccess, nil)
 }
+
+// GetGrouped returns permissions grouped by module
+// @Summary Get grouped permissions
+// @Description Get all permissions grouped by their module prefix (e.g. users, roles)
+// @Tags permissions
+// @Produce json
+// @Success 200 {object} utils.APIResponse{data=map[string][]string}
+// @Router /permissions/grouped [get]
+func (h *Handler) GetGrouped(c *gin.Context) {
+	res, err := h.service.GetGrouped(c.Request.Context())
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), nil)
+		return
+	}
+
+	utils.SuccessResponse(c, utils.MsgFetchSuccess, res)
+}

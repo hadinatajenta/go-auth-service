@@ -4,6 +4,7 @@ import (
 	"auth-service/internal/utils"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -31,29 +32,32 @@ func NewHandler(service Service) *Handler {
 // @Security Bearer
 // @Router /audit-logs [get]
 func (h *Handler) List(c *gin.Context) {
-	userIDStr := c.Query("user_id")
+	userID, _ := strconv.ParseUint(c.Query("userId"), 10, 32)
 	action := c.Query("action")
-	limitStr := c.DefaultQuery("limit", "10")
-	offsetStr := c.DefaultQuery("offset", "0")
+	entity := c.Query("entity")
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	limit, _ := strconv.Atoi(limitStr)
-	offset, _ := strconv.Atoi(offsetStr)
-	var userID uint
-	if userIDStr != "" {
-		id, _ := strconv.ParseUint(userIDStr, 10, 32)
-		userID = uint(id)
+	var from, to *time.Time
+	if fromStr := c.Query("from"); fromStr != "" {
+		if t, err := time.Parse(time.RFC3339, fromStr); err == nil {
+			from = &t
+		}
+	}
+	if toStr := c.Query("to"); toStr != "" {
+		if t, err := time.Parse(time.RFC3339, toStr); err == nil {
+			to = &t
+		}
 	}
 
-	logs, total, err := h.service.List(c.Request.Context(), userID, action, limit, offset)
+	logs, total, err := h.service.List(c.Request.Context(), uint(userID), action, entity, from, to, limit, offset)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to fetch audit logs", err.Error())
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), nil)
 		return
 	}
 
-	utils.SuccessResponse(c, "Audit logs fetched successfully", gin.H{
-		"items": logs,
+	utils.SuccessResponse(c, utils.MsgFetchSuccess, gin.H{
+		"logs":  logs,
 		"total": total,
-		"limit": limit,
-		"offset": offset,
 	})
 }

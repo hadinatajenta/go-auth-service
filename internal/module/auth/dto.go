@@ -3,6 +3,10 @@ package auth
 type LoginRequest struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
+
+	// Server-derived metadata — not bound from JSON body
+	IPAddress string `json:"-"`
+	UserAgent string `json:"-"`
 }
 
 type LoginResponse struct {
@@ -19,5 +23,9 @@ type RegisterRequest struct {
 }
 
 type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+type LogoutRequest struct {
 	RefreshToken string `json:"refresh_token" binding:"required"`
 }

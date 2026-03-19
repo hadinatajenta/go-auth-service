@@ -10,6 +10,7 @@ type Service interface {
 	GetByID(ctx context.Context, id uint) (*MenuResponse, error)
 	List(ctx context.Context) ([]MenuResponse, error)
 	GetUserMenusTree(ctx context.Context, userID uint) ([]MenuTreeResponse, error)
+	GetFullTree(ctx context.Context) ([]MenuTreeResponse, error)
 	Update(ctx context.Context, id uint, req MenuUpdateRequest) (*MenuResponse, error)
 	Delete(ctx context.Context, id uint) error
 }
@@ -68,6 +69,19 @@ func (s *service) GetUserMenusTree(ctx context.Context, userID uint) ([]MenuTree
 		return nil, err
 	}
 
+	return s.buildTree(menus), nil
+}
+
+func (s *service) GetFullTree(ctx context.Context) ([]MenuTreeResponse, error) {
+	menus, err := s.repo.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.buildTree(menus), nil
+}
+
+func (s *service) buildTree(menus []Menu) []MenuTreeResponse {
 	menuMap := make(map[uint]*MenuTreeResponse)
 	for _, m := range menus {
 		menuMap[m.ID] = &MenuTreeResponse{
@@ -83,7 +97,6 @@ func (s *service) GetUserMenusTree(ctx context.Context, userID uint) ([]MenuTree
 	}
 
 	var tree []MenuTreeResponse
-
 	for _, m := range menus {
 		node := menuMap[m.ID]
 		if m.ParentID == 0 {
@@ -98,8 +111,7 @@ func (s *service) GetUserMenusTree(ctx context.Context, userID uint) ([]MenuTree
 	}
 
 	s.sortMenuTree(tree)
-
-	return tree, nil
+	return tree
 }
 
 func (s *service) sortMenuTree(tree []MenuTreeResponse) {

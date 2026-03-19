@@ -3,6 +3,7 @@ package permission
 import (
 	"auth-service/internal/utils/cache"
 	"context"
+	"strings"
 )
 
 type Service interface {
@@ -11,6 +12,7 @@ type Service interface {
 	List(ctx context.Context) ([]PermissionResponse, error)
 	Update(ctx context.Context, id uint, req PermissionUpdateRequest) (*PermissionResponse, error)
 	Delete(ctx context.Context, id uint) error
+	GetGrouped(ctx context.Context) (map[string][]string, error)
 }
 
 type service struct {
@@ -96,4 +98,23 @@ func (s *service) toResponse(perm *Permission) *PermissionResponse {
 		CreatedAt:   perm.CreatedAt,
 		UpdatedAt:   perm.UpdatedAt,
 	}
+}
+
+func (s *service) GetGrouped(ctx context.Context) (map[string][]string, error) {
+	perms, err := s.repo.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	grouped := make(map[string][]string)
+	for _, p := range perms {
+		parts := strings.Split(p.Name, ":")
+		if len(parts) > 1 {
+			module := parts[0]
+			grouped[module] = append(grouped[module], p.Name)
+		} else {
+			grouped["other"] = append(grouped["other"], p.Name)
+		}
+	}
+	return grouped, nil
 }
