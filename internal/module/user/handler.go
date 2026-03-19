@@ -114,14 +114,16 @@ func (h *Handler) ForgotPassword(c *gin.Context) {
 		return
 	}
 
-	token, err := h.service.ForgotPassword(c.Request.Context(), req)
+	_, err := h.service.ForgotPassword(c.Request.Context(), req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
+		// Always return success to prevent user enumeration
+		utils.SuccessResponse(c, "If that email exists, a reset link has been sent.", nil)
 		return
 	}
 
-	// In production, send this via email. For now, we return it in the response for demo purposes.
-	utils.SuccessResponse(c, "Reset token generated", gin.H{"reset_token": token})
+	// SECURITY: Never return the reset token in the API response.
+	// Deliver it out-of-band (email/SMS) in production.
+	utils.SuccessResponse(c, "If that email exists, a reset link has been sent.", nil)
 }
 
 func (h *Handler) ResetPassword(c *gin.Context) {
@@ -244,4 +246,43 @@ func (h *Handler) GetPermissions(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, utils.MsgFetchSuccess, res)
+}
+// GetMyPermissions returns the effective permissions for the authenticated user.
+func (h *Handler) GetMyPermissions(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "User context not found", nil)
+		return
+	}
+
+	perms, err := h.service.GetPermissions(c.Request.Context(), userID.(uint))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), nil)
+		return
+	}
+
+	if perms == nil {
+		perms = []string{}
+	}
+	utils.SuccessResponse(c, utils.MsgFetchSuccess, gin.H{"permissions": perms})
+}
+
+// GetMyRoles returns the roles assigned to the authenticated user.
+func (h *Handler) GetMyRoles(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "User context not found", nil)
+		return
+	}
+
+	roles, err := h.service.ListRoles(c.Request.Context(), userID.(uint))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), nil)
+		return
+	}
+
+	if roles == nil {
+		roles = []RoleResponse{}
+	}
+	utils.SuccessResponse(c, utils.MsgFetchSuccess, gin.H{"roles": roles})
 }

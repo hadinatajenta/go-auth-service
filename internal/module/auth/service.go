@@ -8,6 +8,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type Service interface {
@@ -16,6 +18,7 @@ type Service interface {
 	RefreshToken(ctx context.Context, req RefreshRequest) (*LoginResponse, error)
 	Logout(ctx context.Context, refreshToken string) error
 	LogoutAll(ctx context.Context, userID uint) error
+	Introspect(ctx context.Context, req IntrospectRequest) IntrospectResponse
 }
 
 type service struct {
@@ -162,4 +165,39 @@ func (s *service) Logout(ctx context.Context, refreshToken string) error {
 
 func (s *service) LogoutAll(ctx context.Context, userID uint) error {
 	return s.authRepo.DeleteAllSessionsByUserID(ctx, userID)
+}
+
+func (s *service) Introspect(ctx context.Context, req IntrospectRequest) IntrospectResponse {
+	inactive := IntrospectResponse{Active: false}
+
+	// 1. Validate JWT signature + expiry
+	token, err := utils.ValidateToken(req.Token, s.cfg.JWTSecret)
+	if err != nil || !token.Valid {
+		return inactive
+	}
+
+	// 2. Extract claims using the correct jwt.MapClaims type
+	mc, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return inactive
+	}
+	userIDRaw, hasUID := mc["user_id"]
+	expRaw, hasExp := mc["exp"]
+	if !hasUID || !hasExp {
+		return inactive
+	}
+	userIDFloat, ok1 := userIDRaw.(float64)
+	expFloat, ok2 := expRaw.(float64)
+	if !ok1 || !ok2 {
+		return inactive
+	}
+
+	// 3. Verify session still exists — guards against post-logout reuse
+	if _, err := s.authRepo.GetSessionByAccessToken(ctx, req.Token); err != nil {
+		return inactive
+	}
+
+	uid := uint(userIDFloat)
+	exp := int64(expFloat)
+	return IntrospectResponse{Active: true, UserID: &uid, Exp: &exp}
 }

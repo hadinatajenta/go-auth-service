@@ -29,3 +29,13 @@ type RefreshRequest struct {
 type LogoutRequest struct {
 	RefreshToken string `json:"refresh_token" binding:"required"`
 }
+
+type IntrospectRequest struct {
+	Token string `json:"token" binding:"required"`
+}
+
+type IntrospectResponse struct {
+	Active bool   `json:"active"`
+	UserID *uint  `json:"user_id,omitempty"`
+	Exp    *int64 `json:"exp,omitempty"`
+}

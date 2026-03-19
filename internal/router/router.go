@@ -15,6 +15,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gorm.io/gorm"
 
 	_ "auth-service/docs"
@@ -60,6 +61,10 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	r.Use(gin.Logger())
 	r.Use(middleware.CORSMiddleware())
 	r.Use(middleware.AuditMiddleware())
+	r.Use(middleware.MetricsMiddleware())
+
+	// Prometheus metrics endpoint
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// Health check
 	r.GET("/health", func(c *gin.Context) {
@@ -86,16 +91,16 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	// API V1 Group
 	v1 := r.Group("/api/v1")
 	{
-		authGroup := v1.Group("/auth")
-		// Apply rate limit to login and register: 5 requests per minute, burst 10
-		authGroup.Use(middleware.RateLimitMiddleware(5.0/60.0, 10))
+		authorizedAuth := v1.Group("/auth")
+		authorizedAuth.Use(middleware.RateLimitMiddleware(5.0/60.0, 10))
 		{
-			authGroup.POST("/login", authHandler.Login)
-			authGroup.POST("/register", authHandler.Register)
-			authGroup.POST("/refresh", authHandler.Refresh)
-			authGroup.POST("/logout", authHandler.Logout)
-			authGroup.POST("/forgot-password", userHandler.ForgotPassword)
-			authGroup.POST("/reset-password", userHandler.ResetPassword)
+			authorizedAuth.POST("/login", authHandler.Login)
+			authorizedAuth.POST("/register", authHandler.Register)
+			authorizedAuth.POST("/refresh", authHandler.Refresh)
+			authorizedAuth.POST("/logout", authHandler.Logout)
+			authorizedAuth.POST("/forgot-password", userHandler.ForgotPassword)
+			authorizedAuth.POST("/reset-password", userHandler.ResetPassword)
+			authorizedAuth.POST("/introspect", authHandler.Introspect)
 		}
 
 		// Protected routes
@@ -105,6 +110,8 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 			protected.GET("/me", userHandler.GetProfile)
 			protected.POST("/change-password", userHandler.ChangePassword)
 			protected.POST("/auth/logout-all", authHandler.LogoutAll)
+			protected.GET("/me/permissions", userHandler.GetMyPermissions)
+			protected.GET("/me/roles", userHandler.GetMyRoles)
 
 			// User Routes
 			userGroup := protected.Group("/users")

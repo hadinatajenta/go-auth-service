@@ -2,6 +2,7 @@ package auth
 
 import (
 	"auth-service/internal/utils"
+	"auth-service/internal/utils/metrics"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -26,12 +27,16 @@ func (h *Handler) Login(c *gin.Context) {
 	req.IPAddress = c.ClientIP()
 	req.UserAgent = c.GetHeader("User-Agent")
 
+	metrics.LoginAttemptTotal.Inc()
+
 	res, err := h.service.Login(c.Request.Context(), req)
 	if err != nil {
+		metrics.LoginFailureTotal.Inc()
 		utils.ErrorResponse(c, http.StatusUnauthorized, err.Error(), nil)
 		return
 	}
 
+	metrics.LoginSuccessTotal.Inc()
 	utils.SuccessResponse(c, utils.MsgLoginSuccess, res)
 }
 
@@ -48,6 +53,7 @@ func (h *Handler) Refresh(c *gin.Context) {
 		return
 	}
 
+	metrics.TokenRefreshTotal.Inc()
 	utils.SuccessResponse(c, "Token refreshed successfully", res)
 }
 
@@ -94,4 +100,14 @@ func (h *Handler) LogoutAll(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, "Logged out from all sessions successfully", nil)
+}
+func (h *Handler) Introspect(c *gin.Context) {
+	var req IntrospectRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ValidationErrorResponse(c, utils.MsgInvalidInput, utils.FormatValidationError(err))
+		return
+	}
+
+	res := h.service.Introspect(c.Request.Context(), req)
+	utils.SuccessResponse(c, "Token introspection result", res)
 }
