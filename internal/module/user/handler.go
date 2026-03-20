@@ -16,6 +16,22 @@ func NewHandler(service Service) *Handler {
 	return &Handler{service}
 }
 
+func (h *Handler) Create(c *gin.Context) {
+	var req UserCreateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ValidationErrorResponse(c, utils.MsgInvalidInput, utils.FormatValidationError(err))
+		return
+	}
+
+	res, err := h.service.Create(c.Request.Context(), req)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), nil)
+		return
+	}
+
+	utils.SuccessResponse(c, utils.MsgCreateSuccess, res)
+}
+
 func (h *Handler) GetProfile(c *gin.Context) {
 	// Example: get ID from param or context
 	idStr := c.Param("id")

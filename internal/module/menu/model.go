@@ -6,7 +6,7 @@ import (
 
 type Menu struct {
 	ID          uint      `gorm:"primaryKey" json:"id"`
-	Name        string    `gorm:"size:100;not null" json:"name"`
+	Name        string    `gorm:"size:100;unique;not null" json:"name"`
 	Description string    `gorm:"size:255" json:"description"`
 	Path        string    `gorm:"size:255" json:"path"`
 	Icon        string    `gorm:"size:50" json:"icon"`

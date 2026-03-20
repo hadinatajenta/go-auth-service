@@ -12,6 +12,7 @@ import (
 )
 
 type Service interface {
+	Create(ctx context.Context, req UserCreateRequest) (*UserResponse, error)
 	GetProfile(ctx context.Context, id uint) (*UserProfileResponse, error)
 	Update(ctx context.Context, id uint, req UserUpdateRequest) (*UserResponse, error)
 	List(ctx context.Context) ([]UserResponse, error)
@@ -33,6 +34,29 @@ type service struct {
 
 func NewService(repo Repository, auditSvc audit.Service, cache cache.Cache) Service {
 	return &service{repo, auditSvc, cache}
+}
+
+func (s *service) Create(ctx context.Context, req UserCreateRequest) (*UserResponse, error) {
+	hashedPassword, err := utils.HashPassword(req.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	u := &User{
+		Username:  req.Username,
+		Email:     req.Email,
+		Password:  hashedPassword,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+	}
+
+	if err := s.repo.Create(ctx, u); err != nil {
+		return nil, err
+	}
+
+	s.logActivity(ctx, "CREATE", "user", u.ID, nil, u)
+
+	return s.toResponse(u), nil
 }
 
 func (s *service) GetProfile(ctx context.Context, id uint) (*UserProfileResponse, error) {

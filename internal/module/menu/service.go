@@ -37,7 +37,13 @@ func (s *service) Create(ctx context.Context, req MenuCreateRequest) (*MenuRespo
 		return nil, err
 	}
 
-	return s.toResponse(menu), nil
+	if req.PermissionID > 0 {
+		if err := s.repo.SetPermission(ctx, menu.ID, req.PermissionID); err != nil {
+			return nil, err
+		}
+	}
+
+	return s.toResponse(ctx, menu), nil
 }
 
 func (s *service) GetByID(ctx context.Context, id uint) (*MenuResponse, error) {
@@ -46,7 +52,7 @@ func (s *service) GetByID(ctx context.Context, id uint) (*MenuResponse, error) {
 		return nil, err
 	}
 
-	return s.toResponse(menu), nil
+	return s.toResponse(ctx, menu), nil
 }
 
 func (s *service) List(ctx context.Context) ([]MenuResponse, error) {
@@ -57,7 +63,7 @@ func (s *service) List(ctx context.Context) ([]MenuResponse, error) {
 
 	var res []MenuResponse
 	for _, m := range menus {
-		res = append(res, *s.toResponse(&m))
+		res = append(res, *s.toResponse(ctx, &m))
 	}
 
 	return res, nil
@@ -69,7 +75,7 @@ func (s *service) GetUserMenusTree(ctx context.Context, userID uint) ([]MenuTree
 		return nil, err
 	}
 
-	return s.buildTree(menus), nil
+	return s.buildTree(ctx, menus), nil
 }
 
 func (s *service) GetFullTree(ctx context.Context) ([]MenuTreeResponse, error) {
@@ -78,36 +84,53 @@ func (s *service) GetFullTree(ctx context.Context) ([]MenuTreeResponse, error) {
 		return nil, err
 	}
 
-	return s.buildTree(menus), nil
+	return s.buildTree(ctx, menus), nil
 }
 
-func (s *service) buildTree(menus []Menu) []MenuTreeResponse {
+func (s *service) buildTree(ctx context.Context, menus []Menu) []MenuTreeResponse {
 	menuMap := make(map[uint]*MenuTreeResponse)
 	for _, m := range menus {
+		permID, _ := s.repo.GetPermissionID(ctx, m.ID)
 		menuMap[m.ID] = &MenuTreeResponse{
-			ID:          m.ID,
-			Name:        m.Name,
-			Description: m.Description,
-			Path:        m.Path,
-			Icon:        m.Icon,
-			ParentID:    m.ParentID,
-			SortOrder:   m.SortOrder,
-			Children:    []MenuTreeResponse{},
+			ID:           m.ID,
+			Name:         m.Name,
+			Description:  m.Description,
+			Path:         m.Path,
+			Icon:         m.Icon,
+			ParentID:     m.ParentID,
+			PermissionID: permID,
+			SortOrder:    m.SortOrder,
+			Children:     []MenuTreeResponse{},
 		}
 	}
 
-	var tree []MenuTreeResponse
+	childrenMap := make(map[uint][]uint)
+	var rootIDs []uint
+
 	for _, m := range menus {
-		node := menuMap[m.ID]
 		if m.ParentID == 0 {
-			tree = append(tree, *node)
+			rootIDs = append(rootIDs, m.ID)
 		} else {
-			if parent, exists := menuMap[m.ParentID]; exists {
-				parent.Children = append(parent.Children, *node)
+			if _, exists := menuMap[m.ParentID]; exists {
+				childrenMap[m.ParentID] = append(childrenMap[m.ParentID], m.ID)
 			} else {
-				tree = append(tree, *node)
+				rootIDs = append(rootIDs, m.ID)
 			}
 		}
+	}
+
+	var buildNode func(id uint) MenuTreeResponse
+	buildNode = func(id uint) MenuTreeResponse {
+		node := menuMap[id]
+		for _, childID := range childrenMap[id] {
+			node.Children = append(node.Children, buildNode(childID))
+		}
+		return *node
+	}
+
+	var tree []MenuTreeResponse
+	for _, id := range rootIDs {
+		tree = append(tree, buildNode(id))
 	}
 
 	s.sortMenuTree(tree)
@@ -147,23 +170,30 @@ func (s *service) Update(ctx context.Context, id uint, req MenuUpdateRequest) (*
 		return nil, err
 	}
 
-	return s.toResponse(menu), nil
+	if err := s.repo.SetPermission(ctx, menu.ID, req.PermissionID); err != nil {
+		return nil, err
+	}
+
+	return s.toResponse(ctx, menu), nil
 }
 
 func (s *service) Delete(ctx context.Context, id uint) error {
 	return s.repo.Delete(ctx, id)
 }
 
-func (s *service) toResponse(menu *Menu) *MenuResponse {
+func (s *service) toResponse(ctx context.Context, menu *Menu) *MenuResponse {
+	permID, _ := s.repo.GetPermissionID(ctx, menu.ID)
 	return &MenuResponse{
-		ID:          menu.ID,
-		Name:        menu.Name,
-		Description: menu.Description,
-		Path:        menu.Path,
-		Icon:        menu.Icon,
-		ParentID:    menu.ParentID,
-		SortOrder:   menu.SortOrder,
-		CreatedAt:   menu.CreatedAt,
-		UpdatedAt:   menu.UpdatedAt,
+		ID:           menu.ID,
+		Name:         menu.Name,
+		Description:  menu.Description,
+		Path:         menu.Path,
+		Icon:         menu.Icon,
+		ParentID:     menu.ParentID,
+		PermissionID: permID,
+		SortOrder:    menu.SortOrder,
+		CreatedAt:    menu.CreatedAt,
+		UpdatedAt:    menu.UpdatedAt,
 	}
 }
+

@@ -113,10 +113,15 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 			protected.GET("/me/permissions", userHandler.GetMyPermissions)
 			protected.GET("/me/roles", userHandler.GetMyRoles)
 
+			// Menu endpoints accessible to ALL authenticated users (user-facing navigation)
+			protected.GET("/menus/allowed", menuHandler.GetAllowed)
+			protected.GET("/menus/tree", menuHandler.GetTree)
+
 			// User Routes
 			userGroup := protected.Group("/users")
-			userGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "manage_users"))
+			userGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "users.manage"))
 			{
+				userGroup.POST("", userHandler.Create)
 				userGroup.GET("", userHandler.List)
 				userGroup.GET("/:id", userHandler.GetProfile)
 				userGroup.PUT("/:id", userHandler.Update)
@@ -129,7 +134,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 
 			// Role Routes
 			roleGroup := protected.Group("/roles")
-			roleGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "manage_roles"))
+			roleGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "roles.manage"))
 			{
 				roleGroup.POST("", roleHandler.Create)
 				roleGroup.GET("", roleHandler.List)
@@ -144,7 +149,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 
 			// Permission Routes
 			permGroup := protected.Group("/permissions")
-			permGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "manage_permissions"))
+			permGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "permissions.manage"))
 			{
 				permGroup.POST("", permHandler.Create)
 				permGroup.GET("", permHandler.List)
@@ -154,34 +159,32 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 				permGroup.GET("/grouped", permHandler.GetGrouped)
 			}
 
-			// Menu Routes
+			// Menu Admin Routes (menus.manage permission required)
 			menuGroup := protected.Group("/menus")
-			menuGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "manage_menus"))
+			menuGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "menus.manage"))
 			{
 				menuGroup.POST("", menuHandler.Create)
-				menuGroup.GET("/allowed", menuHandler.GetAllowed)
-				menuGroup.GET("/tree", menuHandler.GetTree)
 				menuGroup.GET("/:id", menuHandler.GetByID)
 				menuGroup.PUT("/:id", menuHandler.Update)
 				menuGroup.DELETE("/:id", menuHandler.Delete)
 			}
 			// Audit Logs
 			auditGroup := protected.Group("/audit-logs")
-			auditGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "manage_audit_logs"))
+			auditGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "audit.view"))
 			{
 				auditGroup.GET("", auditHandler.List)
 			}
 
 			// RBAC Debug
 			rbacGroup := protected.Group("/rbac")
-			rbacGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "manage_rbac_debug"))
+			rbacGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "rbac.debug"))
 			{
 				rbacGroup.GET("/debug/user/:id", roleHandler.DebugUser)
 			}
 
 			// Service Accounts
 			saGroup := protected.Group("/service-accounts")
-			saGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "manage_service_accounts"))
+			saGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "service_accounts.manage"))
 			{
 				saGroup.POST("", saHandler.Create)
 				saGroup.GET("", saHandler.List)

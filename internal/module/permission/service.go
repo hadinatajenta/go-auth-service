@@ -3,6 +3,8 @@ package permission
 import (
 	"auth-service/internal/utils/cache"
 	"context"
+	"errors"
+	"regexp"
 	"strings"
 )
 
@@ -25,6 +27,10 @@ func NewService(repo Repository, cache cache.Cache) Service {
 }
 
 func (s *service) Create(ctx context.Context, req PermissionCreateRequest) (*PermissionResponse, error) {
+	if matched, _ := regexp.MatchString(`^[a-z_]+\.[a-z_]+$`, req.Name); !matched {
+		return nil, errors.New("permission name must follow <resource>.<action> format (e.g. users.manage)")
+	}
+
 	perm := &Permission{
 		Name:        req.Name,
 		Description: req.Description,
