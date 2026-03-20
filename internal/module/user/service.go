@@ -81,6 +81,9 @@ func (s *service) GetProfile(ctx context.Context, id uint) (*UserProfileResponse
 }
 
 func (s *service) Update(ctx context.Context, id uint, req UserUpdateRequest) (*UserResponse, error) {
+	if id == 1 {
+		return nil, errors.New("cannot modify system bootstrap administrator")
+	}
 	u, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, errors.New(utils.MsgNotFound)
@@ -122,6 +125,17 @@ func (s *service) List(ctx context.Context) ([]UserResponse, error) {
 }
 
 func (s *service) Delete(ctx context.Context, id uint) error {
+	auditCtx := audit.FromContext(ctx)
+	if auditCtx != nil {
+		if id == auditCtx.UserID {
+			return errors.New("cannot delete your own account")
+		}
+	}
+
+	if id == 1 {
+		return errors.New("cannot delete system bootstrap administrator")
+	}
+
 	u, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -214,6 +228,10 @@ func (s *service) ResetPassword(ctx context.Context, req ResetPasswordRequest) e
 }
 
 func (s *service) AddRole(ctx context.Context, userID uint, req UserRoleRequest) error {
+	auditCtx := audit.FromContext(ctx)
+	if auditCtx != nil && userID == auditCtx.UserID {
+		return errors.New("cannot manage roles for your own account")
+	}
 	if err := s.repo.AddRole(ctx, userID, req.RoleID); err != nil {
 		return err
 	}
@@ -226,6 +244,14 @@ func (s *service) AddRole(ctx context.Context, userID uint, req UserRoleRequest)
 }
 
 func (s *service) RemoveRole(ctx context.Context, userID uint, roleID uint) error {
+	auditCtx := audit.FromContext(ctx)
+	if auditCtx != nil && userID == auditCtx.UserID {
+		return errors.New("cannot manage roles for your own account")
+	}
+	if userID == 1 && roleID == 1 {
+		return errors.New("cannot remove system admin role from bootstrap user")
+	}
+
 	if err := s.repo.RemoveRole(ctx, userID, roleID); err != nil {
 		return err
 	}

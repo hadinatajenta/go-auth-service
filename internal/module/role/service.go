@@ -72,6 +72,9 @@ func (s *service) List(ctx context.Context) ([]RoleResponse, error) {
 }
 
 func (s *service) Update(ctx context.Context, id uint, req RoleUpdateRequest) (*RoleResponse, error) {
+	if id == 1 {
+		return nil, errors.New("cannot modify system administrator role")
+	}
 	role, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -111,6 +114,9 @@ func (s *service) Update(ctx context.Context, id uint, req RoleUpdateRequest) (*
 }
 
 func (s *service) Delete(ctx context.Context, id uint) error {
+	if id == 1 {
+		return errors.New("cannot delete system administrator role")
+	}
 	role, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err

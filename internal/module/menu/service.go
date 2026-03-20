@@ -2,6 +2,7 @@ package menu
 
 import (
 	"context"
+	"errors"
 	"sort"
 )
 
@@ -150,6 +151,10 @@ func (s *service) sortMenuTree(tree []MenuTreeResponse) {
 }
 
 func (s *service) Update(ctx context.Context, id uint, req MenuUpdateRequest) (*MenuResponse, error) {
+	if id <= 8 {
+		return nil, errors.New("cannot modify system core menus")
+	}
+
 	menu, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -178,6 +183,9 @@ func (s *service) Update(ctx context.Context, id uint, req MenuUpdateRequest) (*
 }
 
 func (s *service) Delete(ctx context.Context, id uint) error {
+	if id <= 8 {
+		return errors.New("cannot delete system core menus")
+	}
 	return s.repo.Delete(ctx, id)
 }
 

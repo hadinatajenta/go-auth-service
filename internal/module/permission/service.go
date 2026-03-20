@@ -14,7 +14,7 @@ type Service interface {
 	List(ctx context.Context) ([]PermissionResponse, error)
 	Update(ctx context.Context, id uint, req PermissionUpdateRequest) (*PermissionResponse, error)
 	Delete(ctx context.Context, id uint) error
-	GetGrouped(ctx context.Context) (map[string][]string, error)
+	GetGrouped(ctx context.Context) (map[string][]PermissionResponse, error)
 }
 
 type service struct {
@@ -106,20 +106,21 @@ func (s *service) toResponse(perm *Permission) *PermissionResponse {
 	}
 }
 
-func (s *service) GetGrouped(ctx context.Context) (map[string][]string, error) {
+func (s *service) GetGrouped(ctx context.Context) (map[string][]PermissionResponse, error) {
 	perms, err := s.repo.List(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	grouped := make(map[string][]string)
+	grouped := make(map[string][]PermissionResponse)
 	for _, p := range perms {
-		parts := strings.Split(p.Name, ":")
+		resp := *s.toResponse(&p)
+		parts := strings.Split(p.Name, ".")
 		if len(parts) > 1 {
 			module := parts[0]
-			grouped[module] = append(grouped[module], p.Name)
+			grouped[module] = append(grouped[module], resp)
 		} else {
-			grouped["other"] = append(grouped["other"], p.Name)
+			grouped["other"] = append(grouped["other"], resp)
 		}
 	}
 	return grouped, nil

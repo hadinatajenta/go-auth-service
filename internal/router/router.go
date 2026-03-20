@@ -149,14 +149,16 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 
 			// Permission Routes
 			permGroup := protected.Group("/permissions")
-			permGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "permissions.manage"))
 			{
-				permGroup.POST("", permHandler.Create)
-				permGroup.GET("", permHandler.List)
-				permGroup.GET("/:id", permHandler.GetByID)
-				permGroup.PUT("/:id", permHandler.Update)
-				permGroup.DELETE("/:id", permHandler.Delete)
-				permGroup.GET("/grouped", permHandler.GetGrouped)
+				// GET /grouped is accessible to anyone who can manage permissions OR roles
+				permGroup.GET("/grouped", middleware.PermissionAnyMiddleware(userRepo, memoryCache, "permissions.manage", "roles.manage"), permHandler.GetGrouped)
+
+				// Other endpoints strictly require permissions.manage
+				permGroup.POST("", middleware.PermissionMiddleware(userRepo, memoryCache, "permissions.manage"), permHandler.Create)
+				permGroup.GET("", middleware.PermissionMiddleware(userRepo, memoryCache, "permissions.manage"), permHandler.List)
+				permGroup.GET("/:id", middleware.PermissionMiddleware(userRepo, memoryCache, "permissions.manage"), permHandler.GetByID)
+				permGroup.PUT("/:id", middleware.PermissionMiddleware(userRepo, memoryCache, "permissions.manage"), permHandler.Update)
+				permGroup.DELETE("/:id", middleware.PermissionMiddleware(userRepo, memoryCache, "permissions.manage"), permHandler.Delete)
 			}
 
 			// Menu Admin Routes (menus.manage permission required)
