@@ -18,8 +18,8 @@ type Menu struct {
 
 type MenuPermission struct {
 	ID           uint      `gorm:"primaryKey" json:"id"`
-	MenuID       uint      `gorm:"uniqueIndex:idx_menu_permission" json:"menu_id"`
-	PermissionID uint      `gorm:"uniqueIndex:idx_menu_permission" json:"permission_id"`
+	MenuID       uint      `gorm:"uniqueIndex:idx_menu_permission;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"menu_id"`
+	PermissionID uint      `gorm:"uniqueIndex:idx_menu_permission;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"permission_id"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

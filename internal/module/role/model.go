@@ -18,8 +18,8 @@ type Role struct {
 
 type UserRole struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
-	UserID    uint      `gorm:"uniqueIndex:idx_user_role" json:"user_id"`
-	RoleID    uint      `gorm:"uniqueIndex:idx_user_role" json:"role_id"`
+	UserID    uint      `gorm:"uniqueIndex:idx_user_role;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"user_id"`
+	RoleID    uint      `gorm:"uniqueIndex:idx_user_role;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"role_id"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

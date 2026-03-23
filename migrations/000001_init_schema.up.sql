@@ -73,13 +73,13 @@ CREATE TABLE "menu_permissions" (
   "updated_at" timestamp DEFAULT CURRENT_TIMESTAMP
 );
 
-ALTER TABLE "user_sessions" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id");
-ALTER TABLE "user_roles" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id");
-ALTER TABLE "user_roles" ADD FOREIGN KEY ("role_id") REFERENCES "roles" ("id");
-ALTER TABLE "role_permissions" ADD FOREIGN KEY ("role_id") REFERENCES "roles" ("id");
-ALTER TABLE "role_permissions" ADD FOREIGN KEY ("permission_id") REFERENCES "permissions" ("id");
-ALTER TABLE "menu_permissions" ADD FOREIGN KEY ("menu_id") REFERENCES "menus" ("id");
-ALTER TABLE "menu_permissions" ADD FOREIGN KEY ("permission_id") REFERENCES "permissions" ("id");
+ALTER TABLE "user_sessions" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE;
+ALTER TABLE "user_roles" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE;
+ALTER TABLE "user_roles" ADD FOREIGN KEY ("role_id") REFERENCES "roles" ("id") ON DELETE CASCADE;
+ALTER TABLE "role_permissions" ADD FOREIGN KEY ("role_id") REFERENCES "roles" ("id") ON DELETE CASCADE;
+ALTER TABLE "role_permissions" ADD FOREIGN KEY ("permission_id") REFERENCES "permissions" ("id") ON DELETE CASCADE;
+ALTER TABLE "menu_permissions" ADD FOREIGN KEY ("menu_id") REFERENCES "menus" ("id") ON DELETE CASCADE;
+ALTER TABLE "menu_permissions" ADD FOREIGN KEY ("permission_id") REFERENCES "permissions" ("id") ON DELETE CASCADE;
 
 CREATE UNIQUE INDEX ON "user_roles" ("user_id", "role_id");
 CREATE UNIQUE INDEX ON "role_permissions" ("role_id", "permission_id");

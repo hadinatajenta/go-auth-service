@@ -6,7 +6,7 @@ import (
 
 type UserSession struct {
 	ID           uint      `gorm:"primaryKey" json:"id"`
-	UserID       uint      `json:"user_id"`
+	UserID       uint      `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"user_id"`
 	AccessToken  string    `gorm:"size:512" json:"access_token"`
 	RefreshToken string    `gorm:"size:512" json:"refresh_token"`
 	IPAddress    string    `gorm:"size:45" json:"ip_address"`

@@ -64,5 +64,30 @@ func ConnectDB(cfg *config.Config) {
 		db.Exec("CREATE INDEX IF NOT EXISTS idx_role_permissions_composite ON role_permissions(role_id, permission_id)")
 		db.Exec("CREATE INDEX IF NOT EXISTS idx_audit_logs_lookup ON audit_logs(entity, entity_id, created_at DESC)")
 		db.Exec("CREATE INDEX IF NOT EXISTS idx_audit_logs_user_activity ON audit_logs(user_id, created_at DESC)")
+
+		// Phase 2: Ensure Cascading Deletes for Foreign Keys
+		// This fixes the issue where deleting a permission/role/user/menu fails due to foreign key constraints.
+		
+		// Role Permissions
+		db.Exec(`ALTER TABLE "role_permissions" DROP CONSTRAINT IF EXISTS "role_permissions_role_id_fkey"`)
+		db.Exec(`ALTER TABLE "role_permissions" ADD CONSTRAINT "role_permissions_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "roles" ("id") ON DELETE CASCADE`)
+		db.Exec(`ALTER TABLE "role_permissions" DROP CONSTRAINT IF EXISTS "role_permissions_permission_id_fkey"`)
+		db.Exec(`ALTER TABLE "role_permissions" ADD CONSTRAINT "role_permissions_permission_id_fkey" FOREIGN KEY ("permission_id") REFERENCES "permissions" ("id") ON DELETE CASCADE`)
+
+		// Menu Permissions
+		db.Exec(`ALTER TABLE "menu_permissions" DROP CONSTRAINT IF EXISTS "menu_permissions_menu_id_fkey"`)
+		db.Exec(`ALTER TABLE "menu_permissions" ADD CONSTRAINT "menu_permissions_menu_id_fkey" FOREIGN KEY ("menu_id") REFERENCES "menus" ("id") ON DELETE CASCADE`)
+		db.Exec(`ALTER TABLE "menu_permissions" DROP CONSTRAINT IF EXISTS "menu_permissions_permission_id_fkey"`)
+		db.Exec(`ALTER TABLE "menu_permissions" ADD CONSTRAINT "menu_permissions_permission_id_fkey" FOREIGN KEY ("permission_id") REFERENCES "permissions" ("id") ON DELETE CASCADE`)
+
+		// User Roles
+		db.Exec(`ALTER TABLE "user_roles" DROP CONSTRAINT IF EXISTS "user_roles_user_id_fkey"`)
+		db.Exec(`ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE`)
+		db.Exec(`ALTER TABLE "user_roles" DROP CONSTRAINT IF EXISTS "user_roles_role_id_fkey"`)
+		db.Exec(`ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "roles" ("id") ON DELETE CASCADE`)
+
+		// User Sessions
+		db.Exec(`ALTER TABLE "user_sessions" DROP CONSTRAINT IF EXISTS "user_sessions_user_id_fkey"`)
+		db.Exec(`ALTER TABLE "user_sessions" ADD CONSTRAINT "user_sessions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE`)
 	}
 }

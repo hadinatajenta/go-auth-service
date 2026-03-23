@@ -14,8 +14,8 @@ type Permission struct {
 
 type RolePermission struct {
 	ID           uint      `gorm:"primaryKey" json:"id"`
-	RoleID       uint      `gorm:"uniqueIndex:idx_role_permission" json:"role_id"`
-	PermissionID uint      `gorm:"uniqueIndex:idx_role_permission" json:"permission_id"`
+	RoleID       uint      `gorm:"uniqueIndex:idx_role_permission;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"role_id"`
+	PermissionID uint      `gorm:"uniqueIndex:idx_role_permission;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"permission_id"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
