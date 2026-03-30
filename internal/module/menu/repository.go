@@ -51,22 +51,22 @@ func (r *repository) GetAccessibleMenus(ctx context.Context, userID uint) ([]Men
 	query := `
 	WITH RECURSIVE exact_authorized_menus AS (
     SELECT DISTINCT m.*
-    FROM menus m
-    LEFT JOIN menu_permissions mp ON m.id = mp.menu_id
-    LEFT JOIN role_permissions rp ON mp.permission_id = rp.permission_id
-    LEFT JOIN user_roles ur ON rp.role_id = ur.role_id
-    WHERE ur.user_id = ?
-       OR mp.permission_id IS NULL
-),
-nested_menus AS (
-    SELECT * FROM exact_authorized_menus
-    UNION
-    SELECT m.*
-    FROM menus m
-    JOIN nested_menus n ON m.id = n.parent_id
-)
-SELECT * FROM nested_menus
-ORDER BY sort_order ASC;
+		FROM menus m
+		LEFT JOIN menu_permissions mp ON m.id = mp.menu_id
+		LEFT JOIN role_permissions rp ON mp.permission_id = rp.permission_id
+		LEFT JOIN user_roles ur ON rp.role_id = ur.role_id
+		WHERE ur.user_id = ?
+		OR mp.permission_id IS NULL
+		),
+		nested_menus AS (
+			SELECT * FROM exact_authorized_menus
+			UNION
+			SELECT m.*
+			FROM menus m
+			JOIN nested_menus n ON m.id = n.parent_id
+		)
+	SELECT * FROM nested_menus
+	ORDER BY sort_order ASC;
 	`
 
 	if err := r.db.WithContext(ctx).Raw(query, userID).Scan(&menus).Error; err != nil {
