@@ -56,12 +56,13 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	auditHandler := audit.NewHandler(auditService)
 	saHandler := sa.NewHandler(saService)
 
-	// Global middleware
-	r.Use(gin.Recovery())
-	r.Use(gin.Logger())
-	r.Use(middleware.CORSMiddleware())
-	r.Use(middleware.AuditMiddleware())
-	r.Use(middleware.MetricsMiddleware())
+	// Global middleware (in order)
+	r.Use(gin.Recovery())                              // Panic recovery
+	r.Use(gin.Logger())                                // Request logging
+	r.Use(middleware.CORSMiddleware(cfg))              // CORS with whitelist
+	r.Use(middleware.AuditMiddleware())                // Audit logging
+	r.Use(middleware.MetricsMiddleware())              // Prometheus metrics
+	r.Use(middleware.RequestSizeLimitMiddleware())     // DoS protection: limit request body size
 
 	// Prometheus metrics endpoint
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
