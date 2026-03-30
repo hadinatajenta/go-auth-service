@@ -17,6 +17,7 @@ type Config struct {
 	JWTSecret          string
 	AppPort            string
 	CORSAllowedOrigins string
+	Environment        string // "development" or "production"
 }
 
 func LoadConfig() *Config {
@@ -47,6 +48,7 @@ func LoadConfig() *Config {
 		JWTSecret:          jwtSecret,
 		AppPort:            getEnv("APP_PORT", "8080"),
 		CORSAllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000"),
+		Environment:        getEnv("ENVIRONMENT", "production"),
 	}
 }
 

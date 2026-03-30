@@ -179,11 +179,14 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 				auditGroup.GET("", auditHandler.List)
 			}
 
-			// RBAC Debug
+			// RBAC Debug (only available in development)
 			rbacGroup := protected.Group("/rbac")
 			rbacGroup.Use(middleware.PermissionMiddleware(userRepo, memoryCache, "rbac.debug"))
 			{
-				rbacGroup.GET("/debug/user/:id", roleHandler.DebugUser)
+				// Debug endpoint - only available in development environment
+				if cfg.Environment == "development" {
+					rbacGroup.GET("/debug/user/:id", roleHandler.DebugUser)
+				}
 			}
 
 			// Service Accounts
