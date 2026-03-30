@@ -3,8 +3,8 @@ package router
 import (
 	"auth-service/internal/config"
 	"auth-service/internal/middleware"
-	"auth-service/internal/module/auth"
 	"auth-service/internal/module/audit"
+	"auth-service/internal/module/auth"
 	"auth-service/internal/module/menu"
 	"auth-service/internal/module/permission"
 	"auth-service/internal/module/role"
@@ -19,6 +19,7 @@ import (
 	"gorm.io/gorm"
 
 	_ "auth-service/docs"
+
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -57,12 +58,12 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	saHandler := sa.NewHandler(saService)
 
 	// Global middleware (in order)
-	r.Use(gin.Recovery())                              // Panic recovery
-	r.Use(gin.Logger())                                // Request logging
-	r.Use(middleware.CORSMiddleware(cfg))              // CORS with whitelist
-	r.Use(middleware.AuditMiddleware())                // Audit logging
-	r.Use(middleware.MetricsMiddleware())              // Prometheus metrics
-	r.Use(middleware.RequestSizeLimitMiddleware())     // DoS protection: limit request body size
+	r.Use(gin.Recovery())                          // Panic recovery
+	r.Use(gin.Logger())                            // Request logging
+	r.Use(middleware.CORSMiddleware(cfg))          // CORS with whitelist
+	r.Use(middleware.AuditMiddleware())            // Audit logging
+	r.Use(middleware.MetricsMiddleware())          // Prometheus metrics
+	r.Use(middleware.RequestSizeLimitMiddleware()) // DoS protection: limit request body size
 
 	// Prometheus metrics endpoint
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
@@ -81,7 +82,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 		}
 
 		utils.SuccessResponse(c, "Server is healthy", gin.H{
-			"status": "up",
+			"status":   "up",
 			"database": "connected",
 		})
 	})

@@ -40,12 +40,12 @@ func ValidateToken(tokenString, secret string) (*jwt.Token, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		
+
 		// ✅ ENFORCE: Only allow HS256 specifically
 		if token.Method.Alg() != "HS256" {
 			return nil, fmt.Errorf("invalid algorithm: expected HS256, got %s", token.Method.Alg())
 		}
-		
+
 		return []byte(secret), nil
 	})
 }

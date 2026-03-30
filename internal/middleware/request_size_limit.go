@@ -11,11 +11,11 @@ import (
 // CRITICAL SECURITY: Prevents memory exhaustion from large payloads
 func RequestSizeLimitMiddleware() gin.HandlerFunc {
 	const maxBodySize = 10 * 1024 * 1024 // 10 MB max
-	
+
 	return func(c *gin.Context) {
 		// Set max body size for request
 		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBodySize)
-		
+
 		// If body is too large, return 413 Payload Too Large
 		if err := c.Request.ParseForm(); err != nil {
 			if err.Error() == "http: request body too large" {
@@ -23,7 +23,7 @@ func RequestSizeLimitMiddleware() gin.HandlerFunc {
 				return
 			}
 		}
-		
+
 		c.Next()
 	}
 }
