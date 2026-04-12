@@ -1,8 +1,11 @@
 package user
 
 import (
+	"auth-service/internal/utils"
 	"context"
+	"errors"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 )
 
@@ -30,7 +33,15 @@ func NewRepository(db *gorm.DB) Repository {
 }
 
 func (r *repository) Create(ctx context.Context, user *User) error {
-	return r.db.WithContext(ctx).Create(user).Error
+	err := r.db.WithContext(ctx).Create(user).Error
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return utils.ErrUserExists
+		}
+		return err
+	}
+	return nil
 }
 
 func (r *repository) GetByID(ctx context.Context, id uint) (*User, error) {
@@ -71,7 +82,7 @@ func (r *repository) Update(ctx context.Context, user *User) error {
 
 func (r *repository) List(ctx context.Context) ([]User, error) {
 	var users []User
-	if err := r.db.WithContext(ctx).Debug().
+	if err := r.db.WithContext(ctx).Unscoped().
 		Preload("Roles").
 		Select("users.*").
 		Joins("LEFT JOIN user_roles ON user_roles.user_id = users.id").

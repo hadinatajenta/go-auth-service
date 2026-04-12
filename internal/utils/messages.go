@@ -19,4 +19,5 @@ const (
 	MsgTokenInvalid       = "Invalid or expired token"
 	MsgInvalidAuthFormat  = "Invalid authorization header format"
 	MsgInvalidCredentials = "Invalid username or password"
+	MsgUserExists         = "User already exist"
 )

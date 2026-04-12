@@ -2,6 +2,7 @@
 bin/
 build/
 dist/
+main
 
 # Build artifacts
 *.exe

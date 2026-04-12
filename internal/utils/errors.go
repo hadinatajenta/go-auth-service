@@ -42,4 +42,5 @@ var (
 	ErrNotFound     = NewError(http.StatusNotFound, MsgNotFound, nil)
 	ErrInternal     = NewError(http.StatusInternalServerError, MsgInternalError, nil)
 	ErrBadRequest   = NewError(http.StatusBadRequest, MsgInvalidInput, nil)
+	ErrUserExists   = NewError(http.StatusConflict, MsgUserExists, nil)
 )

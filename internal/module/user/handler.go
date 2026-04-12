@@ -2,6 +2,7 @@ package user
 
 import (
 	"auth-service/internal/utils"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -25,7 +26,12 @@ func (h *Handler) Create(c *gin.Context) {
 
 	res, err := h.service.Create(c.Request.Context(), req)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error(), nil)
+		code := http.StatusInternalServerError
+		var appErr *utils.AppError
+		if errors.As(err, &appErr) {
+			code = appErr.Code
+		}
+		utils.ErrorResponse(c, code, err.Error(), nil)
 		return
 	}
 
